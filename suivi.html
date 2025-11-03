@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi des Séances - LaserOstop Tunisie</title>
+    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="manifest" href="pwa/manifest.webmanifest">
+    <meta name="theme-color" content="#0C9AA6">
+    <meta name="description" content="Suivi et confirmation des séances LaserOstop Tunisie">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="assets/logo.webp" alt="LaserOstop Tunisie" class="logo-img">
+            </div>
+            <nav class="nav-controls">
+                <a href="index.html" class="btn btn-secondary">📅 Planning</a>
+                <a href="dashboard.html" class="btn btn-secondary">📊 Dashboard</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main suivi">
+        <div class="page-header">
+            <h1 class="page-title">Suivi des Séances</h1>
+            <div class="quick-stats">
+                <div class="stat-item">
+                    <span class="stat-label">À confirmer:</span>
+                    <span id="pendingCount" class="stat-value">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Revenus du jour:</span>
+                    <span id="dailyRevenue" class="stat-value">- DT</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="suivi-layout">
+            <!-- Left Column - Sessions to Confirm -->
+            <div class="sessions-column">
+                <div class="section-header">
+                    <h2>Séances à Confirmer</h2>
+                    <div class="filters">
+                        <select id="dateFilter" class="filter-select">
+                            <option value="today">Aujourd'hui</option>
+                            <option value="yesterday">Hier</option>
+                            <option value="week">Cette semaine</option>
+                            <option value="all">Toutes</option>
+                        </select>
+                        <select id="categoryFilter" class="filter-select">
+                            <option value="">Toutes catégories</option>
+                            <option value="tabac">Arrêt du tabac</option>
+                            <option value="drogue">Sevrage drogue</option>
+                            <option value="drogue_dure">Sevrage drogues dures</option>
+                        </select>
+                        <button id="refreshBtn" class="btn btn-secondary">🔄</button>
+                    </div>
+                </div>
+
+                <div id="sessionsList" class="sessions-list">
+                    <div class="loading">Chargement des séances...</div>
+                </div>
+            </div>
+
+            <!-- Right Column - Financial Summary -->
+            <div class="summary-column">
+                <!-- Today's Summary -->
+                <div class="summary-card">
+                    <h3>Aujourd'hui</h3>
+                    <div class="summary-stats">
+                        <div class="summary-row">
+                            <span>Confirmées:</span>
+                            <span id="todayConfirmed">- séances • - DT</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>En attente:</span>
+                            <span id="todayPending">- séances • - DT estimé</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Absents:</span>
+                            <span id="todayAbsent">- séances • - DT</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weekly Chart -->
+                <div class="summary-card">
+                    <h3>Cette Semaine</h3>
+                    <div class="chart-container">
+                        <canvas id="weeklyChart" width="300" height="150"></canvas>
+                    </div>
+                    <div class="summary-stats">
+                        <div class="summary-row">
+                            <span>Total:</span>
+                            <span id="weeklyTotal">- DT</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Moyenne/séance:</span>
+                            <span id="weeklyAverage">- DT</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="summary-card">
+                    <h3>Actions Rapides</h3>
+                    <div class="quick-actions">
+                        <button id="markAllConfirmedBtn" class="btn btn-primary">
+                            ✅ Marquer tout confirmé
+                        </button>
+                        <button id="dailyReportBtn" class="btn btn-secondary">
+                            📊 Rapport journalier
+                        </button>
+                        <button id="exportFinancesBtn" class="btn btn-secondary">
+                            💾 Exporter finances
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+    <!-- Session Confirmation Modal -->
+    <dialog id="sessionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="sessionModalTitle">Confirmer la Séance</h2>
+                <button id="closeSessionModal" class="btn-close" aria-label="Fermer">×</button>
+            </div>
+            <form id="sessionForm" class="modal-form">
+                <div class="session-info-display">
+                    <div id="sessionClientInfo" class="client-info"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Statut de présence *</label>
+                    <div class="attendance-options">
+                        <label class="attendance-option">
+                            <input type="radio" name="attendanceStatus" value="present" required>
+                            <span class="option-content">
+                                <span class="option-icon">✅</span>
+                                <span class="option-text">Présent</span>
+                                <small>Client présent, séance effectuée</small>
+                            </span>
+                        </label>
+                        <label class="attendance-option">
+                            <input type="radio" name="attendanceStatus" value="absent" required>
+                            <span class="option-content">
+                                <span class="option-icon">❌</span>
+                                <span class="option-text">Absent</span>
+                                <small>Client absent, séance annulée</small>
+                            </span>
+                        </label>
+                        <label class="attendance-option">
+                            <input type="radio" name="attendanceStatus" value="rescheduled" required>
+                            <span class="option-content">
+                                <span class="option-icon">⏰</span>
+                                <span class="option-text">Reporté</span>
+                                <small>Séance reportée à une autre date</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="actualPrice">Prix de la séance *</label>
+                    <div class="price-options">
+                        <button type="button" id="standardPriceBtn" class="price-btn active">
+                            Prix standard (<span id="standardPriceValue">500</span> DT)
+                        </button>
+                        <button type="button" id="freePriceBtn" class="price-btn">
+                            Séance offerte (0 DT)
+                        </button>
+                        <button type="button" id="customPriceBtn" class="price-btn">
+                            Prix personnalisé
+                        </button>
+                    </div>
+                    <div class="price-input-group">
+                        <input type="number" id="actualPrice" name="actualPrice" min="0" step="0.01" required>
+                        <span class="currency">DT</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="priceNotes">Notes sur le prix (optionnel)</label>
+                    <input type="text" id="priceNotes" name="priceNotes" placeholder="Remise, promotion, etc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="followUpNotes">Notes de suivi (optionnel)</label>
+                    <textarea id="followUpNotes" name="followUpNotes" rows="3" placeholder="Observations, prochaines étapes, etc."></textarea>
+                </div>
+
+                <input type="hidden" id="sessionId" name="sessionId">
+
+                <div class="modal-actions">
+                    <button type="button" id="cancelSession" class="btn btn-secondary">Annuler</button>
+                    <button type="submit" id="confirmSession" class="btn btn-primary">Confirmer</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <!-- Batch Confirmation Modal -->
+    <dialog id="batchModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirmation en Lot</h2>
+                <button id="closeBatchModal" class="btn-close" aria-label="Fermer">×</button>
+            </div>
+            <div class="modal-form">
+                <p>Marquer toutes les séances d'aujourd'hui comme confirmées avec le prix standard ?</p>
+                <div class="batch-preview" id="batchPreview">
+                    <!-- Will be populated with session list -->
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancelBatch" class="btn btn-secondary">Annuler</button>
+                    <button type="button" id="confirmBatch" class="btn btn-primary">Confirmer Tout</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <footer class="footer">
+        <p>© 2024 LaserOstop Tunisie</p>
+    </footer>
+
+    <script src="vendor/supabase.min.js"></script>
+    <script src="suivi.js?v=8"></script>
+</body>
+</html>

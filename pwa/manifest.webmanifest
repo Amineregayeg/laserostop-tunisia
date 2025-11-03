@@ -1,0 +1,55 @@
+{
+  "name": "LaserOstop — Planning",
+  "short_name": "LaserOstop",
+  "description": "Application de gestion des rendez-vous LaserOstop Tunisie",
+  "lang": "fr",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0C9AA6",
+  "categories": ["medical", "productivity", "business"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Planning",
+      "short_name": "Planning",
+      "description": "Voir le planning des rendez-vous",
+      "url": "/",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Tableau de bord",
+      "short_name": "Dashboard",
+      "description": "Accéder au tableau de bord",
+      "url": "/dashboard.html",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "scope": "/",
+  "id": "laserostop-planning",
+  "prefer_related_applications": false
+}

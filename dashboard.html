@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord - LaserOstop Tunisie</title>
+    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="manifest" href="pwa/manifest.webmanifest">
+    <meta name="theme-color" content="#0C9AA6">
+    <meta name="description" content="Tableau de bord LaserOstop Tunisie">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="assets/logo.webp" alt="LaserOstop Tunisie" class="logo-img">
+            </div>
+            <nav class="nav-controls">
+                <a href="index.html" class="btn btn-secondary">📅 Planning</a>
+                <a href="suivi.html" class="btn btn-secondary">📋 Suivi</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main dashboard">
+        <h1 class="page-title">Tableau de bord</h1>
+        
+        <!-- KPIs -->
+        <section class="kpis">
+            <div class="kpi-card">
+                <h3>Réservations (semaine)</h3>
+                <div id="weeklyBookings" class="kpi-value">-</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Taux de remplissage</h3>
+                <div id="fillRate" class="kpi-value">-</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Total réservations</h3>
+                <div id="totalBookings" class="kpi-value">-</div>
+            </div>
+        </section>
+
+        <!-- Configuration -->
+        <section class="config-section">
+            <h2>Configuration</h2>
+            <div class="config-container">
+                <div class="config-group">
+                    <label for="notificationEmail">Email de notification</label>
+                    <div class="email-input-group">
+                        <input type="email" id="notificationEmail" placeholder="email@example.com" value="Aminregeq1@gmail.com">
+                        <button id="updateEmailBtn" class="btn btn-primary">Mettre à jour</button>
+                    </div>
+                    <small>Les notifications de nouveaux rendez-vous seront envoyées à cette adresse.</small>
+                </div>
+                
+                <div class="config-group">
+                    <label>Installation de l'application</label>
+                    <div class="install-app-group">
+                        <button id="installAppBtn" class="btn btn-primary install-btn" style="display: none;">
+                            📱 Installer l'application
+                        </button>
+                        <div id="installInstructions" class="install-instructions">
+                            <p><strong>Pour installer l'application sur votre appareil :</strong></p>
+                            <ul>
+                                <li><strong>Mobile (iOS/Android) :</strong> Tapez sur le menu du navigateur → "Ajouter à l'écran d'accueil"</li>
+                                <li><strong>Desktop :</strong> Cliquez sur l'icône d'installation dans la barre d'adresse</li>
+                                <li><strong>Chrome :</strong> Menu → "Installer LaserOstop Planning"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Répartition par catégorie -->
+        <section class="chart-section">
+            <h2>Répartition par catégorie</h2>
+            <div class="chart-container">
+                <div class="chart-bars" id="categoryChart">
+                    <div class="chart-bar">
+                        <div class="bar-label">Arrêt du tabac</div>
+                        <div class="bar-wrapper">
+                            <div class="bar tabac" data-category="tabac" style="width: 0%"></div>
+                        </div>
+                        <div class="bar-value" id="tabacCount">0</div>
+                    </div>
+                    <div class="chart-bar">
+                        <div class="bar-label">Sevrage drogue</div>
+                        <div class="bar-wrapper">
+                            <div class="bar drogue" data-category="drogue" style="width: 0%"></div>
+                        </div>
+                        <div class="bar-value" id="drogueCount">0</div>
+                    </div>
+                    <div class="chart-bar">
+                        <div class="bar-label">Sevrage drogues dures</div>
+                        <div class="bar-wrapper">
+                            <div class="bar drogue_dure" data-category="drogue_dure" style="width: 0%"></div>
+                        </div>
+                        <div class="bar-value" id="drogueDureCount">0</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filtres et tableau -->
+        <section class="bookings-section">
+            <div class="section-header">
+                <h2>Réservations</h2>
+                <button id="exportBtn" class="btn btn-primary">Exporter CSV</button>
+            </div>
+            
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="dateFrom">Date de début</label>
+                    <input type="date" id="dateFrom" name="dateFrom">
+                </div>
+                <div class="filter-group">
+                    <label for="dateTo">Date de fin</label>
+                    <input type="date" id="dateTo" name="dateTo">
+                </div>
+                <div class="filter-group">
+                    <label for="categoryFilter">Catégorie</label>
+                    <select id="categoryFilter" name="categoryFilter">
+                        <option value="">Toutes</option>
+                        <option value="tabac">Arrêt du tabac</option>
+                        <option value="drogue">Sevrage drogue</option>
+                        <option value="drogue_dure">Sevrage drogues dures</option>
+                    </select>
+                </div>
+                <button id="applyFilters" class="btn btn-secondary">Filtrer</button>
+                <button id="resetFilters" class="btn btn-secondary">Réinitialiser</button>
+            </div>
+
+            <div class="table-container">
+                <table id="bookingsTable" class="bookings-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="date">Date <span class="sort-icon">↕</span></th>
+                            <th data-sort="time">Heure <span class="sort-icon">↕</span></th>
+                            <th data-sort="name">Nom <span class="sort-icon">↕</span></th>
+                            <th data-sort="phone">Téléphone <span class="sort-icon">↕</span></th>
+                            <th data-sort="category">Catégorie <span class="sort-icon">↕</span></th>
+                            <th data-sort="status">Statut <span class="sort-icon">↕</span></th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookingsTableBody">
+                        <tr>
+                            <td colspan="7" class="loading">Chargement...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+    <footer class="footer">
+        <p>© 2024 LaserOstop Tunisie - <a href="index.html">📅 Planning</a> • <a href="suivi.html">📋 Suivi</a></p>
+    </footer>
+
+    <script src="vendor/supabase.min.js"></script>
+    <script src="dashboard.js?v=8"></script>
+</body>
+</html>
