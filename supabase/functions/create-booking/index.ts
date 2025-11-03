@@ -10,12 +10,13 @@ const corsHeaders = {
 interface BookingRequest {
   client_name: string
   phone: string
-  category: 'tabac' | 'drogue' | 'drogue_dure'
+  category: 'tabac' | 'drogue' | 'drogue_dure' | 'drogue_douce' | 'renforcement'
   notes?: string
   session_duration?: number
   session_type?: 'solo' | 'duo'
   slot_start_local: string // ISO string in local time
   slot_end_local: string   // ISO string in local time
+  force_create?: boolean   // Skip duplicate check
 }
 
 interface SMTPConfig {
@@ -69,9 +70,14 @@ serve(async (req) => {
     // No phone format validation - accept any input
 
     // Validate category
-    const validCategories = ['tabac', 'drogue', 'drogue_dure']
+    const validCategories = ['tabac', 'drogue', 'drogue_dure', 'drogue_douce', 'renforcement']
     if (!validCategories.includes(bookingData.category)) {
       throw new Error('Catégorie invalide')
+    }
+
+    // Enforce renforcement must be 30 minutes
+    if (bookingData.category === 'renforcement' && bookingData.session_duration !== 30) {
+      throw new Error('Le renforcement doit être de 30 minutes (gratuit)')
     }
 
     // Convert local time to UTC
@@ -121,6 +127,63 @@ serve(async (req) => {
 
     if (existingBookings && existingBookings.length > 0) {
       throw new Error('Créneau déjà réservé')
+    }
+
+    // Check for duplicate client (skip if force_create flag is set)
+    const forceCreate = bookingData.force_create === true;
+
+    if (!forceCreate) {
+      // Normalize phone for Tunisia formats
+      const normalizedPhone = (bookingData.phone || '')
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/^00216/, '+216')
+        .replace(/^\+216/, '')
+        .replace(/^0/, '');
+
+      // Check by phone first (most reliable)
+      const { data: byPhone } = await supabaseClient
+        .from('bookings')
+        .select('id,slot_start_utc,slot_end_utc,client_name,phone')
+        .in('status', ['booked', 'confirmed'])
+        .ilike('phone', `%${normalizedPhone}%`);
+
+      if (byPhone && byPhone.length > 0) {
+        return new Response(
+          JSON.stringify({
+            conflict: 'duplicate_client',
+            match_by: 'phone',
+            existing_booking: byPhone[0],
+            message: 'Ce client existe déjà avec un autre rendez-vous'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 409,
+          }
+        );
+      }
+
+      // Fallback by name (case-insensitive exact match)
+      const { data: byName } = await supabaseClient
+        .from('bookings')
+        .select('id,slot_start_utc,slot_end_utc,client_name,phone')
+        .in('status', ['booked', 'confirmed'])
+        .ilike('client_name', bookingData.client_name?.trim());
+
+      if (byName && byName.length > 0) {
+        return new Response(
+          JSON.stringify({
+            conflict: 'duplicate_client',
+            match_by: 'name',
+            existing_booking: byName[0],
+            message: 'Un client avec ce nom existe déjà'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 409,
+          }
+        );
+      }
     }
 
     // Create the booking
@@ -215,7 +278,7 @@ function isValidBusinessSlot(dayOfWeek: number, startTime: string, endTime: stri
         (start === timeToMinutes('14:30') && end === timeToMinutes('15:30'))
       )
     case 6: // Saturday
-      return start >= timeToMinutes('10:00') && end <= timeToMinutes('17:00')
+      return start >= timeToMinutes('10:00') && end <= timeToMinutes('18:00')
     default:
       return false
   }
@@ -267,7 +330,9 @@ async function sendBookingNotification(booking: any, supabaseClient: any) {
   const categories = {
     tabac: 'Arrêt du tabac',
     drogue: 'Sevrage drogue',
-    drogue_dure: 'Sevrage drogues dures'
+    drogue_dure: 'Sevrage drogues dures',
+    drogue_douce: 'Sevrage drogues douces',
+    renforcement: 'Renforcement (gratuit)'
   }
 
   const subject = 'Nouveau rendez-vous LaserOstop'
@@ -303,11 +368,22 @@ LaserOstop Tunisie
 }
 
 async function sendEmail(config: SMTPConfig, to: string, subject: string, body: string) {
-  // This is a simplified email implementation
-  // In a real deployment, you would use a proper SMTP library or service
-  console.log(`Would send email to ${to}: ${subject}`)
-  console.log(`Body: ${body}`)
-  
-  // For demo purposes, we'll just log the email
-  // In production, implement actual SMTP sending here
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  if (!resendApiKey) {
+    console.error('RESEND_API_KEY not set');
+    throw new Error('Email service not configured');
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method:'POST',
+    headers:{
+      'Authorization':`Bearer ${resendApiKey}`,
+      'Content-Type':'application/json'
+    },
+    body: JSON.stringify({ from: config.from, to:[to], subject, text: body })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(()=> ({}));
+    console.error('Resend error:', err);
+    throw new Error(`Email send failed: ${res.status}`);
+  }
 }

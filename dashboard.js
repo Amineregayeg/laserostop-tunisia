@@ -17,7 +17,9 @@ const STRINGS = {
   CATEGORIES: {
     tabac: 'Arrêt du tabac',
     drogue: 'Sevrage drogue',
-    drogue_dure: 'Sevrage drogues dures'
+    drogue_dure: 'Sevrage drogues dures',
+    drogue_douce: 'Sevrage drogues douces',
+    renforcement: 'Renforcement (gratuit)'
   },
   STATUS: {
     booked: 'Confirmé',
@@ -577,6 +579,36 @@ function showToast(message, type = 'info') {
   }, 4000);
 }
 
+// ===== Supabase Client =====
+let supabaseClient = null;
+
+function initializeSupabase() {
+  if (typeof window.supabase !== 'undefined') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}
+
+// ===== Realtime Updates =====
+function setupRealtimeUpdates() {
+  if (!supabaseClient) {
+    console.warn('Supabase client not initialized, skipping Realtime');
+    return;
+  }
+
+  const channel = supabaseClient.channel('dashboard-bookings')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'bookings' },
+      (payload) => {
+        console.log('Realtime update:', payload);
+        // Reload dashboard data on any booking change
+        loadDashboardData();
+      }
+    )
+    .subscribe();
+
+  console.log('Dashboard Realtime updates enabled');
+}
+
 // ===== Authentication =====
 function checkAuth() {
   const authKey = 'laserostop_dashboard_auth';
@@ -607,13 +639,19 @@ function checkAuth() {
 function init() {
   // Check authentication (required)
   if (!checkAuth()) return;
-  
+
+  // Initialize Supabase client
+  initializeSupabase();
+
+  // Setup Realtime updates
+  setupRealtimeUpdates();
+
   // Initialize event listeners
   initializeEventListeners();
-  
+
   // Load notification email
   loadNotificationEmail();
-  
+
   // Load dashboard data
   loadDashboardData();
 }

@@ -79,7 +79,9 @@ serve(async (req) => {
     const standardPrices = {
       'tabac': 500.00,
       'drogue': 750.00,
-      'drogue_dure': 1000.00
+      'drogue_dure': 1000.00,
+      'drogue_douce': 600.00,
+      'renforcement': 0.00
     }
     const standardPrice = standardPrices[booking.category as keyof typeof standardPrices] || 0
 

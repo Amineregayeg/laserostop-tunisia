@@ -100,6 +100,14 @@
                                 <input type="radio" name="category" value="drogue_dure" required>
                                 <span>Sevrage drogues dures</span>
                             </label>
+                            <label class="radio-label">
+                                <input type="radio" name="category" value="drogue_douce" required>
+                                <span>Sevrage drogues douces</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="category" value="renforcement" required>
+                                <span>Renforcement (gratuit, 30 min)</span>
+                            </label>
                         </div>
                     </fieldset>
                 </div>
@@ -129,6 +137,7 @@
             </div>
             <div id="bookingDetails" class="booking-details"></div>
             <div class="modal-actions">
+                <button type="button" id="editBookingBtn" class="btn btn-primary">Modifier</button>
                 <button type="button" id="cancelBookingBtn" class="btn btn-danger">Annuler le RDV</button>
                 <button type="button" id="closeDetails" class="btn btn-secondary">Fermer</button>
             </div>
@@ -145,6 +154,123 @@
             <div class="modal-actions">
                 <button type="button" id="confirmNo" class="btn btn-secondary">Non</button>
                 <button type="button" id="confirmYes" class="btn btn-danger">Oui</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Modal Edit Booking -->
+    <dialog id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Modifier le rendez-vous</h2>
+                <button id="closeEditModal" class="btn-close" aria-label="Fermer">×</button>
+            </div>
+            <form id="editForm" class="modal-form">
+                <div class="form-group">
+                    <label for="editClientName">Nom & Prénom *</label>
+                    <input type="text" id="editClientName" name="editClientName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editPhone">Téléphone *</label>
+                    <input type="text" id="editPhone" name="editPhone" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Durée et Type de séance</label>
+                    <div class="switches-container">
+                        <div class="switch-group">
+                            <label class="switch-label">Durée:</label>
+                            <div class="duration-switch">
+                                <button type="button" class="edit-duration-btn" data-duration="60">60 min</button>
+                                <button type="button" class="edit-duration-btn" data-duration="30">30 min</button>
+                                <button type="button" class="edit-duration-btn" data-duration="90">90 min</button>
+                            </div>
+                        </div>
+                        <div class="switch-group">
+                            <label class="switch-label">Type:</label>
+                            <div class="type-switch">
+                                <button type="button" class="edit-type-btn" data-type="solo">Solo</button>
+                                <button type="button" class="edit-type-btn" data-type="duo">Duo</button>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="editSessionDuration" name="editSessionDuration">
+                    <input type="hidden" id="editSessionType" name="editSessionType">
+                </div>
+
+                <div class="form-group">
+                    <fieldset>
+                        <legend>Catégorie *</legend>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="editCategory" value="tabac" required>
+                                <span>Arrêt du tabac</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="editCategory" value="drogue" required>
+                                <span>Sevrage drogue</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="editCategory" value="drogue_dure" required>
+                                <span>Sevrage drogues dures</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="editCategory" value="drogue_douce" required>
+                                <span>Sevrage drogues douces</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="editCategory" value="renforcement" required>
+                                <span>Renforcement (gratuit, 30 min)</span>
+                            </label>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <div class="form-group">
+                    <label for="editNotes">Notes (optionnel)</label>
+                    <textarea id="editNotes" name="editNotes" maxlength="140" rows="3"></textarea>
+                    <small class="edit-char-count">0/140</small>
+                </div>
+
+                <input type="hidden" id="editBookingId" name="editBookingId">
+
+                <div class="modal-actions">
+                    <button type="button" id="cancelEdit" class="btn btn-secondary">Annuler</button>
+                    <button type="submit" id="submitEdit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <!-- Modal Duplicate Client -->
+    <dialog id="duplicateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚠️ Client déjà enregistré</h2>
+                <button id="closeDuplicateModal" class="btn-close" aria-label="Fermer">×</button>
+            </div>
+            <div class="duplicate-info">
+                <p id="duplicateDescription"></p>
+                <div class="duplicate-preview">
+                    <div class="existing-booking-preview" id="existingBookingInfo"></div>
+                </div>
+            </div>
+            <div class="duplicate-options">
+                <h3>Comment voulez-vous procéder ?</h3>
+                <div class="option-buttons">
+                    <button type="button" id="moveOldBtn" class="btn btn-primary duplicate-option">
+                        🔄 Déplacer l'ancien
+                        <small>Déplacer le rendez-vous existant au nouveau créneau</small>
+                    </button>
+                    <button type="button" id="keepBothBtn" class="btn btn-secondary duplicate-option">
+                        📅 Garder les deux
+                        <small>Créer un deuxième rendez-vous pour ce client</small>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="cancelDuplicateBtn" class="btn btn-secondary">Annuler</button>
             </div>
         </div>
     </dialog>

@@ -16,12 +16,16 @@ const STRINGS = {
   CATEGORIES: {
     tabac: 'Arrêt du tabac',
     drogue: 'Sevrage drogue',
-    drogue_dure: 'Sevrage drogues dures'
+    drogue_dure: 'Sevrage drogues dures',
+    drogue_douce: 'Sevrage drogues douces',
+    renforcement: 'Renforcement (gratuit)'
   },
   STANDARD_PRICES: {
     tabac: 500,
     drogue: 750,
-    drogue_dure: 1000
+    drogue_dure: 1000,
+    drogue_douce: 600,
+    renforcement: 0
   },
   ATTENDANCE_STATUS: {
     present: { icon: '✅', text: 'Présent', color: '#28A745' },

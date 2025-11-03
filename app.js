@@ -9,6 +9,8 @@ const API = {
   WEEK: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/week',
   CREATE: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/create-booking',
   CANCEL: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/cancel-booking',
+  MOVE: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/move-booking',
+  UPDATE: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/update-booking',
   STATS: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/stats',
   EXPORT: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/export'
 };
@@ -18,7 +20,9 @@ const STRINGS = {
   CATEGORIES: {
     tabac: 'Arrêt du tabac',
     drogue: 'Sevrage drogue',
-    drogue_dure: 'Sevrage drogues dures'
+    drogue_dure: 'Sevrage drogues dures',
+    drogue_douce: 'Sevrage drogues douces',
+    renforcement: 'Renforcement (gratuit)'
   },
   ERRORS: {
     REQUIRED_FIELDS: 'Veuillez remplir tous les champs obligatoires',
@@ -62,8 +66,8 @@ function generateTimeSlots() {
   }
   slots.vendredi.push('15:00-15:30');
 
-  // Saturday: 10:00 → 17:00
-  for (let hour = 10; hour < 17; hour++) {
+  // Saturday: 10:00 → 18:00
+  for (let hour = 10; hour < 18; hour++) {
     slots.samedi.push(`${hour.toString().padStart(2, '0')}:00-${hour.toString().padStart(2, '0')}:30`);
     slots.samedi.push(`${hour.toString().padStart(2, '0')}:30-${(hour + 1).toString().padStart(2, '0')}:00`);
   }
@@ -79,6 +83,7 @@ let currentBookings = [];
 let isSubmitting = false;
 let draggedBooking = null;
 let draggedElement = null;
+let pendingDuplicateData = null;
 
 // ===== Date Utilities =====
 function getTunisTime() {
@@ -438,12 +443,18 @@ async function apiCall(url, options = {}) {
       },
       ...options
     });
-    
+
+    // Handle 409 Conflict (duplicate client) specially
+    if (response.status === 409) {
+      const conflictData = await response.json();
+      return { conflict: true, ...conflictData };
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `HTTP ${response.status}`);
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('API Error:', error);
@@ -471,7 +482,12 @@ async function createBooking(bookingData) {
     method: 'POST',
     body: JSON.stringify(bookingData)
   });
-  
+
+  // Handle duplicate client conflict
+  if (data.conflict === true && data.conflict === 'duplicate_client') {
+    return data; // Return conflict data to be handled by caller
+  }
+
   if (data.success) {
     currentBookings.push(data.booking);
     renderCalendar();
@@ -640,8 +656,21 @@ async function handleBookingSubmit(event) {
       showToast(errors.join(', '), 'error');
       return;
     }
-    
-    await createBooking(bookingData);
+
+    const result = await createBooking(bookingData);
+
+    // Handle duplicate client conflict
+    if (result.conflict === 'duplicate_client') {
+      pendingDuplicateData = {
+        bookingData: bookingData,
+        existingBooking: result.existing_booking,
+        matchBy: result.match_by
+      };
+      closeBookingModal();
+      showDuplicateModal(result);
+      return;
+    }
+
     closeBookingModal();
     showToast(STRINGS.SUCCESS.BOOKING_CREATED, 'success');
     
@@ -1024,13 +1053,20 @@ function initializeSwitches() {
   // Duration switches
   document.querySelectorAll('.duration-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      // Check if renforcement is selected
+      const selectedCategory = document.querySelector('input[name="category"]:checked')?.value;
+      if (selectedCategory === 'renforcement' && e.target.dataset.duration !== '30') {
+        showToast('Le renforcement doit être de 30 minutes', 'error');
+        return;
+      }
+
       // Remove active from all duration buttons
       document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
       // Add active to clicked button
       e.target.classList.add('active');
       // Update hidden input
       document.getElementById('sessionDuration').value = e.target.dataset.duration;
-      
+
       // Auto-update available slots based on duration
       updateAvailableSlots();
     });
@@ -1045,16 +1081,32 @@ function initializeSwitches() {
       e.target.classList.add('active');
       // Update hidden input
       document.getElementById('sessionType').value = e.target.dataset.type;
-      
+
       // Auto-set duration to 90min for duo
       if (e.target.dataset.type === 'duo') {
         document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
         document.querySelector('[data-duration="90"]').classList.add('active');
         document.getElementById('sessionDuration').value = '90';
       }
-      
+
       // Update available slots
       updateAvailableSlots();
+    });
+  });
+
+  // Category radio buttons - enforce renforcement = 30 min
+  document.querySelectorAll('input[name="category"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      if (e.target.value === 'renforcement') {
+        // Force 30 minutes
+        document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
+        const btn30 = document.querySelector('[data-duration="30"]');
+        if (btn30) {
+          btn30.classList.add('active');
+          document.getElementById('sessionDuration').value = '30';
+        }
+        showToast('Renforcement: séance gratuite de 30 minutes', 'info');
+      }
     });
   });
 }
@@ -1116,22 +1168,45 @@ function initializeEventListeners() {
   document.getElementById('closeConflictModal').addEventListener('click', () => {
     document.getElementById('conflictModal').close();
   });
-  
+
   document.getElementById('shareTimeBtn').addEventListener('click', () => {
     handleConflictResolution('share');
   });
-  
+
   document.getElementById('moveDownBtn').addEventListener('click', () => {
     handleConflictResolution('moveDown');
   });
-  
+
   document.getElementById('replaceBtn').addEventListener('click', () => {
     handleConflictResolution('replace');
   });
-  
+
   document.getElementById('cancelMoveBtn').addEventListener('click', () => {
     document.getElementById('conflictModal').close();
   });
+
+  // Duplicate client modal
+  document.getElementById('closeDuplicateModal').addEventListener('click', closeDuplicateModal);
+  document.getElementById('cancelDuplicateBtn').addEventListener('click', closeDuplicateModal);
+  document.getElementById('moveOldBtn').addEventListener('click', handleMoveOld);
+  document.getElementById('keepBothBtn').addEventListener('click', handleKeepBoth);
+
+  // Edit booking modal
+  document.getElementById('editBookingBtn').addEventListener('click', () => {
+    const bookingId = document.getElementById('cancelBookingBtn').dataset.bookingId;
+    const booking = currentBookings.find(b => b.id === bookingId);
+    if (booking) {
+      closeDetailsModal();
+      showEditModal(booking);
+    }
+  });
+
+  document.getElementById('closeEditModal').addEventListener('click', closeEditModal);
+  document.getElementById('cancelEdit').addEventListener('click', closeEditModal);
+  document.getElementById('editForm').addEventListener('submit', handleEditSubmit);
+
+  // Initialize edit modal switches
+  initializeEditSwitches();
 
   // Close modals on backdrop click
   [document.getElementById('bookingModal'), document.getElementById('detailsModal'), document.getElementById('confirmModal'), document.getElementById('conflictModal')].forEach(modal => {
@@ -1220,6 +1295,225 @@ function initializePWAInstall() {
   // Hide install button if app is already installed
   if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
     installBtn.style.display = 'none';
+  }
+}
+
+// ===== Duplicate Client Modal =====
+function showDuplicateModal(conflictData) {
+  const modal = document.getElementById('duplicateModal');
+  const description = document.getElementById('duplicateDescription');
+  const existingInfo = document.getElementById('existingBookingInfo');
+
+  const matchType = conflictData.match_by === 'phone' ? 'numéro de téléphone' : 'nom';
+  description.textContent = `Ce client existe déjà (correspondance par ${matchType}).`;
+
+  const existing = conflictData.existing_booking;
+  const startDate = new Date(existing.slot_start_utc);
+  const startLocal = startDate.toLocaleString('fr-TN', {
+    timeZone: TUNIS_TZ,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  existingInfo.innerHTML = `
+    <div><strong>${existing.client_name}</strong></div>
+    <div>${existing.phone}</div>
+    <div>${startLocal}</div>
+  `;
+
+  modal.showModal();
+}
+
+function closeDuplicateModal() {
+  document.getElementById('duplicateModal').close();
+  pendingDuplicateData = null;
+}
+
+async function handleMoveOld() {
+  if (!pendingDuplicateData) return;
+
+  try {
+    const { bookingData, existingBooking } = pendingDuplicateData;
+
+    // Move the existing booking to the new slot
+    const moveResult = await apiCall(API.MOVE, {
+      method: 'POST',
+      body: JSON.stringify({
+        booking_id: existingBooking.id,
+        new_slot_start_local: bookingData.slot_start_local,
+        new_slot_end_local: bookingData.slot_end_local
+      })
+    });
+
+    if (moveResult.success) {
+      closeDuplicateModal();
+      showToast('Rendez-vous existant déplacé avec succès', 'success');
+      loadWeekBookings();
+    } else {
+      throw new Error(moveResult.message || 'Erreur lors du déplacement');
+    }
+  } catch (error) {
+    showToast(error.message || STRINGS.ERRORS.UNKNOWN_ERROR, 'error');
+  }
+}
+
+async function handleKeepBoth() {
+  if (!pendingDuplicateData) return;
+
+  try {
+    const { bookingData } = pendingDuplicateData;
+
+    // Create new booking with force_create flag
+    const result = await createBooking({ ...bookingData, force_create: true });
+
+    if (result.success) {
+      closeDuplicateModal();
+      showToast('Deuxième rendez-vous créé avec succès', 'success');
+    } else {
+      throw new Error(result.message || 'Erreur lors de la création');
+    }
+  } catch (error) {
+    showToast(error.message || STRINGS.ERRORS.UNKNOWN_ERROR, 'error');
+  }
+}
+
+// ===== Edit Booking Modal =====
+function showEditModal(booking) {
+  const modal = document.getElementById('editModal');
+
+  // Populate form fields
+  document.getElementById('editClientName').value = booking.client_name;
+  document.getElementById('editPhone').value = booking.phone;
+  document.getElementById('editSessionDuration').value = booking.session_duration || 60;
+  document.getElementById('editSessionType').value = booking.session_type || 'solo';
+  document.getElementById('editNotes').value = booking.notes || '';
+  document.getElementById('editBookingId').value = booking.id;
+
+  // Set active duration button
+  document.querySelectorAll('.edit-duration-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.duration === String(booking.session_duration || 60));
+  });
+
+  // Set active type button
+  document.querySelectorAll('.edit-type-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === (booking.session_type || 'solo'));
+  });
+
+  // Set category radio
+  const categoryRadio = document.querySelector(`input[name="editCategory"][value="${booking.category}"]`);
+  if (categoryRadio) {
+    categoryRadio.checked = true;
+  }
+
+  // Update char count
+  const charCount = document.querySelector('.edit-char-count');
+  if (charCount) {
+    charCount.textContent = `${(booking.notes || '').length}/140`;
+  }
+
+  modal.showModal();
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').close();
+}
+
+async function handleEditSubmit(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const formData = new FormData(form);
+  const bookingId = document.getElementById('editBookingId').value;
+
+  const updateData = {
+    booking_id: bookingId,
+    client_name: formData.get('editClientName').trim(),
+    phone: formData.get('editPhone').trim(),
+    category: formData.get('editCategory'),
+    notes: formData.get('editNotes')?.trim() || '',
+    session_duration: parseInt(document.getElementById('editSessionDuration').value),
+    session_type: document.getElementById('editSessionType').value
+  };
+
+  try {
+    const result = await apiCall(API.UPDATE, {
+      method: 'POST',
+      body: JSON.stringify(updateData)
+    });
+
+    if (result.success) {
+      closeEditModal();
+      closeDetailsModal();
+      showToast('Rendez-vous modifié avec succès', 'success');
+      loadWeekBookings();
+    } else {
+      throw new Error(result.message || 'Erreur lors de la modification');
+    }
+  } catch (error) {
+    showToast(error.message || STRINGS.ERRORS.UNKNOWN_ERROR, 'error');
+  }
+}
+
+// Initialize edit modal switches
+function initializeEditSwitches() {
+  // Duration switches for edit modal
+  document.querySelectorAll('.edit-duration-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const selectedCategory = document.querySelector('input[name="editCategory"]:checked')?.value;
+      if (selectedCategory === 'renforcement' && e.target.dataset.duration !== '30') {
+        showToast('Le renforcement doit être de 30 minutes', 'error');
+        return;
+      }
+
+      document.querySelectorAll('.edit-duration-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      document.getElementById('editSessionDuration').value = e.target.dataset.duration;
+    });
+  });
+
+  // Type switches for edit modal
+  document.querySelectorAll('.edit-type-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.edit-type-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      document.getElementById('editSessionType').value = e.target.dataset.type;
+
+      if (e.target.dataset.type === 'duo') {
+        document.querySelectorAll('.edit-duration-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.edit-duration-btn[data-duration="90"]')?.classList.add('active');
+        document.getElementById('editSessionDuration').value = '90';
+      }
+    });
+  });
+
+  // Category radio buttons for edit modal
+  document.querySelectorAll('input[name="editCategory"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      if (e.target.value === 'renforcement') {
+        document.querySelectorAll('.edit-duration-btn').forEach(b => b.classList.remove('active'));
+        const btn30 = document.querySelector('.edit-duration-btn[data-duration="30"]');
+        if (btn30) {
+          btn30.classList.add('active');
+          document.getElementById('editSessionDuration').value = '30';
+        }
+        showToast('Renforcement: séance gratuite de 30 minutes', 'info');
+      }
+    });
+  });
+
+  // Char counter for edit notes
+  const editNotes = document.getElementById('editNotes');
+  if (editNotes) {
+    editNotes.addEventListener('input', (e) => {
+      const charCount = document.querySelector('.edit-char-count');
+      if (charCount) {
+        charCount.textContent = `${e.target.value.length}/140`;
+      }
+    });
   }
 }
 
