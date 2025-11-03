@@ -51,9 +51,9 @@ function generateTimeSlots() {
   };
 
   // Generate 30-minute slots for each day
-  // Tuesday, Wednesday, Thursday: 10:00 → 18:00
+  // Tuesday, Wednesday, Thursday: 10:00 → 19:00
   ['mardi', 'mercredi', 'jeudi'].forEach(day => {
-    for (let hour = 10; hour < 18; hour++) {
+    for (let hour = 10; hour < 19; hour++) {
       slots[day].push(`${hour.toString().padStart(2, '0')}:00-${hour.toString().padStart(2, '0')}:30`);
       slots[day].push(`${hour.toString().padStart(2, '0')}:30-${(hour + 1).toString().padStart(2, '0')}:00`);
     }
@@ -263,6 +263,7 @@ function renderDesktopCalendar(calendar, weekDates) {
           
           cell.addEventListener('click', () => showBookingDetails(booking));
           setupDragEvents(cell, booking, dateStr, timeSlot);
+          setupEditShortcuts(cell, booking);
         } else {
           cell.className += ' cell--free';
           cell.setAttribute('aria-label', `${STRINGS.DAYS[dayIndex]} ${formatDate(date)} ${timeSlot}, disponible`);
@@ -354,6 +355,7 @@ function renderMobileCalendar(calendar, weekDates) {
         
         slot.addEventListener('click', () => showBookingDetails(booking));
         setupDragEvents(slot, booking, dateStr, timeSlot);
+        setupEditShortcuts(slot, booking);
       } else {
         slot.className += ' cell--free';
         slot.innerHTML = `<div>${timeSlot}</div><div>Libre</div>`;
@@ -772,6 +774,33 @@ function setupDragEvents(element, booking, dateStr, timeSlot) {
     
     draggedBooking = null;
     draggedElement = null;
+  });
+}
+
+// ===== Edit Shortcuts: Long-Press (Mobile) & Right-Click (Desktop) =====
+function setupEditShortcuts(element, booking) {
+  let pressTimer;
+
+  // Mobile: Long-press to edit (500ms)
+  element.addEventListener('touchstart', (e) => {
+    pressTimer = setTimeout(() => {
+      e.preventDefault();
+      showEditModal(booking);
+    }, 500);
+  });
+
+  element.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+  });
+
+  element.addEventListener('touchmove', () => {
+    clearTimeout(pressTimer); // Cancel if user scrolls
+  });
+
+  // Desktop: Right-click to edit
+  element.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showEditModal(booking);
   });
 }
 

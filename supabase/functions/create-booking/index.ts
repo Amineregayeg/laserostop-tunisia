@@ -269,9 +269,9 @@ function isValidBusinessSlot(dayOfWeek: number, startTime: string, endTime: stri
 
   switch (dayOfWeek) {
     case 2: // Tuesday
-    case 3: // Wednesday  
+    case 3: // Wednesday
     case 4: // Thursday
-      return start >= timeToMinutes('10:00') && end <= timeToMinutes('18:00')
+      return start >= timeToMinutes('10:00') && end <= timeToMinutes('19:00')
     case 5: // Friday
       return (
         (start >= timeToMinutes('10:00') && end <= timeToMinutes('15:00')) ||
