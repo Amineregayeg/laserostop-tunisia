@@ -484,7 +484,7 @@ async function createBooking(bookingData) {
   });
 
   // Handle duplicate client conflict
-  if (data.conflict === true && data.conflict === 'duplicate_client') {
+  if (data.conflict === 'duplicate_client') {
     return data; // Return conflict data to be handled by caller
   }
 
