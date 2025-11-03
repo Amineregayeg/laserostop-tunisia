@@ -967,16 +967,22 @@ async function moveBooking(booking, targetDate, targetTimeSlot) {
     };
     
     console.log('New booking data:', newBookingData);
-    
-    // First create the new booking
-    const response = await createBooking(newBookingData);
-    
-    if (response.success) {
-      // Only cancel the original booking after successful creation
-      await cancelBooking(booking.id);
+
+    // Use the move-booking API endpoint (not create-booking to avoid duplicate detection)
+    const moveResponse = await apiCall(API.MOVE, {
+      method: 'POST',
+      body: JSON.stringify({
+        booking_id: booking.id,
+        new_slot_start_local: `${targetDate}T${startTime}:00`,
+        new_slot_end_local: `${targetDate}T${calculatedEndTime}:00`
+      })
+    });
+
+    if (moveResponse.success) {
       showToast('Séance déplacée avec succès', 'success');
+      await loadWeekBookings();
     } else {
-      throw new Error('Échec de la création du nouveau rendez-vous');
+      throw new Error(moveResponse.message || 'Échec du déplacement du rendez-vous');
     }
   } catch (error) {
     console.error('Move booking error:', error);
