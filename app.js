@@ -99,6 +99,10 @@ function formatDate(date) {
   }).format(date);
 }
 
+function toDateISO(date) {
+  return date.toLocaleDateString('sv-SE', { timeZone: TUNIS_TZ });
+}
+
 function formatTime(time) {
   return time;
 }
@@ -205,7 +209,7 @@ function renderDesktopCalendar(calendar, weekDates) {
       cell.className = 'calendar-cell';
       
       if (daySlots.includes(timeSlot)) {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = date.toLocaleDateString('sv-SE', { timeZone: TUNIS_TZ });
         const isPast = isSlotInPast(date, timeSlot);
         const booking = findBookingForSlot(dateStr, timeSlot);
 
@@ -301,7 +305,7 @@ function renderMobileCalendar(calendar, weekDates) {
     slotsContainer.className = 'mobile-slots';
     
     daySlots.forEach(timeSlot => {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = date.toLocaleDateString('sv-SE', { timeZone: TUNIS_TZ });
       const isPast = isSlotInPast(date, timeSlot);
       const booking = findBookingForSlot(dateStr, timeSlot);
       
@@ -469,7 +473,7 @@ async function apiCall(url, options = {}) {
 
 async function loadWeekBookings() {
   try {
-    const startDate = currentWeekStart.toISOString().split('T')[0];
+    const startDate = currentWeekStart.toLocaleDateString('sv-SE', { timeZone: TUNIS_TZ });
     const data = await apiCall(`${API.WEEK}?start=${startDate}&center=${CURRENT_CENTER}`);
     currentBookings = data.bookings || [];
     renderCalendar();
@@ -876,7 +880,7 @@ function getDateFromCalendarCell(cell) {
   const dayIndex = colIndex - 1; // Adjust for time column
   const weekDates = generateWeekDates(currentWeekStart);
   
-  return weekDates[dayIndex]?.toISOString().split('T')[0];
+  return weekDates[dayIndex]?.toLocaleDateString('sv-SE', { timeZone: TUNIS_TZ });
 }
 
 function getTimeSlotFromCalendarCell(cell) {

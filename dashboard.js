@@ -545,8 +545,8 @@ async function loadDashboardData() {
   const dateFromInput = document.getElementById('dateFrom');
   const dateToInput = document.getElementById('dateTo');
 
-  if (!dateFromInput.value) dateFromInput.value = weekStart.toISOString().split('T')[0];
-  if (!dateToInput.value) dateToInput.value = weekEnd.toISOString().split('T')[0];
+  if (!dateFromInput.value) dateFromInput.value = weekStart.toLocaleDateString('sv-SE', { timeZone: 'Africa/Tunis' });
+  if (!dateToInput.value) dateToInput.value = weekEnd.toLocaleDateString('sv-SE', { timeZone: 'Africa/Tunis' });
 
   const dateFrom = dateFromInput.value;
   const dateTo = dateToInput.value;
