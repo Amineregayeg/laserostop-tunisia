@@ -36,6 +36,7 @@ serve(async (req) => {
     const toParam = url.searchParams.get('to')
     const categoryParam = url.searchParams.get('category')
     const formatParam = url.searchParams.get('format') || 'csv'
+    const centerParam = url.searchParams.get('center') || 'tunis'
 
     let startDate: string
     let endDate: string
@@ -66,6 +67,7 @@ serve(async (req) => {
         category,
         notes,
         status,
+        center,
         created_at,
         updated_at
       `)
@@ -73,8 +75,13 @@ serve(async (req) => {
       .lte('date', endDate)
       .order('slot_start_utc', { ascending: true })
 
+    // Add center filter
+    if (centerParam !== 'all') {
+      query = query.eq('center', centerParam)
+    }
+
     // Add category filter if specified
-    if (categoryParam && ['tabac', 'drogue', 'drogue_dure'].includes(categoryParam)) {
+    if (categoryParam && ['tabac', 'drogue', 'drogue_dure', 'drogue_douce', 'renforcement'].includes(categoryParam)) {
       query = query.eq('category', categoryParam)
     }
 

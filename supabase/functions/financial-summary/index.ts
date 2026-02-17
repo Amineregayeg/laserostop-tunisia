@@ -32,6 +32,7 @@ serve(async (req) => {
 
     const url = new URL(req.url)
     const isExport = url.searchParams.get('export') === 'true'
+    const centerParam = url.searchParams.get('center') || 'tunis'
 
     // Get today's date in Tunisia timezone
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Africa/Tunis' })
@@ -40,8 +41,8 @@ serve(async (req) => {
     if (isExport) {
       // Export data for the last 30 days
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString('sv-SE', { timeZone: 'Africa/Tunis' })
-      
-      const { data: exportData, error: exportError } = await supabaseClient
+
+      let exportQuery = supabaseClient
         .from('bookings')
         .select(`
           date,
@@ -52,11 +53,18 @@ serve(async (req) => {
           actual_price,
           attendance_status,
           price_notes,
-          follow_up_notes
+          follow_up_notes,
+          center
         `)
         .gte('date', thirtyDaysAgo)
         .eq('session_confirmed', true)
         .order('date', { ascending: false })
+
+      if (centerParam !== 'all') {
+        exportQuery = exportQuery.eq('center', centerParam)
+      }
+
+      const { data: exportData, error: exportError } = await exportQuery
 
       if (exportError) {
         console.error('Export error:', exportError)
@@ -75,30 +83,67 @@ serve(async (req) => {
       )
     }
 
-    // Get today's summary
-    const { data: todayData, error: todayError } = await supabaseClient
-      .from('daily_financial_summary')
-      .select('*')
+    // Get today's bookings directly (center-aware)
+    let todayQuery = supabaseClient
+      .from('bookings')
+      .select('id, category, attendance_status, standard_price, actual_price, status')
       .eq('date', today)
-      .single()
+    if (centerParam !== 'all') {
+      todayQuery = todayQuery.eq('center', centerParam)
+    }
+    const { data: todayBookings, error: todayError } = await todayQuery
 
-    if (todayError && todayError.code !== 'PGRST116') {
-      console.error('Today summary error:', todayError)
+    if (todayError) {
+      console.error('Today bookings error:', todayError)
     }
 
-    // Get weekly summary (last 7 days)
-    const { data: weeklyData, error: weeklyError } = await supabaseClient
-      .from('daily_financial_summary')
-      .select('*')
+    const tb = todayBookings || []
+    const todayData = {
+      total_sessions: tb.length,
+      confirmed_sessions: tb.filter(b => b.attendance_status === 'present').length,
+      absent_sessions: tb.filter(b => b.attendance_status === 'absent').length,
+      pending_sessions: tb.filter(b => b.attendance_status === 'pending' || !b.attendance_status).length,
+      expected_revenue: tb.reduce((sum, b) => sum + (b.standard_price || 0), 0),
+      confirmed_revenue: tb.filter(b => b.attendance_status === 'present').reduce((sum, b) => sum + (b.actual_price || 0), 0),
+      avg_session_price: 0
+    }
+    if (todayData.confirmed_sessions > 0) {
+      todayData.avg_session_price = Math.round((todayData.confirmed_revenue / todayData.confirmed_sessions) * 100) / 100
+    }
+
+    // Get weekly bookings directly (center-aware)
+    let weeklyQuery = supabaseClient
+      .from('bookings')
+      .select('id, date, category, attendance_status, standard_price, actual_price, status')
       .gte('date', weekAgo)
-      .order('date', { ascending: true })
+    if (centerParam !== 'all') {
+      weeklyQuery = weeklyQuery.eq('center', centerParam)
+    }
+    const { data: weeklyBookings, error: weeklyError } = await weeklyQuery
 
     if (weeklyError) {
-      console.error('Weekly summary error:', weeklyError)
+      console.error('Weekly bookings error:', weeklyError)
     }
 
+    // Group weekly data by date for chart
+    const wb = weeklyBookings || []
+    const dailyMap = new Map<string, any[]>()
+    wb.forEach(b => {
+      const d = b.date
+      if (!dailyMap.has(d)) dailyMap.set(d, [])
+      dailyMap.get(d)!.push(b)
+    })
+
+    const weeklyData = Array.from(dailyMap.entries()).map(([date, bookings]) => ({
+      date,
+      total_sessions: bookings.length,
+      confirmed_sessions: bookings.filter(b => b.attendance_status === 'present').length,
+      confirmed_revenue: bookings.filter(b => b.attendance_status === 'present').reduce((sum, b) => sum + (b.actual_price || 0), 0),
+      expected_revenue: bookings.reduce((sum, b) => sum + (b.standard_price || 0), 0)
+    })).sort((a, b) => a.date.localeCompare(b.date))
+
     // Calculate weekly totals
-    const weeklyTotals = weeklyData?.reduce((acc, day) => ({
+    const weeklyTotals = weeklyData.reduce((acc, day) => ({
       total_sessions: acc.total_sessions + (day.total_sessions || 0),
       confirmed_sessions: acc.confirmed_sessions + (day.confirmed_sessions || 0),
       total_revenue: acc.total_revenue + (day.confirmed_revenue || 0),
@@ -108,51 +153,33 @@ serve(async (req) => {
       confirmed_sessions: 0,
       total_revenue: 0,
       expected_revenue: 0
-    }) || {
-      total_sessions: 0,
-      confirmed_sessions: 0,
-      total_revenue: 0,
-      expected_revenue: 0
-    }
+    })
 
-    const avgSessionPrice = weeklyTotals.confirmed_sessions > 0 
-      ? weeklyTotals.total_revenue / weeklyTotals.confirmed_sessions 
+    const avgSessionPrice = weeklyTotals.confirmed_sessions > 0
+      ? weeklyTotals.total_revenue / weeklyTotals.confirmed_sessions
       : 0
 
     // Prepare daily chart data for the last 7 days
-    const dailyChartData = weeklyData?.map(day => ({
-      day: new Date(day.date).toLocaleDateString('fr-TN', { 
+    const dailyChartData = weeklyData.map(day => ({
+      day: new Date(day.date).toLocaleDateString('fr-TN', {
         weekday: 'short',
         timeZone: 'Africa/Tunis'
       }),
       revenue: day.confirmed_revenue || 0,
       sessions: day.confirmed_sessions || 0
-    })) || []
-
-    // Get category breakdown for current month
-    const firstOfMonth = new Date().toLocaleDateString('sv-SE', { 
-      timeZone: 'Africa/Tunis'
-    }).slice(0, 8) + '01'
-
-    const { data: categoryData, error: categoryError } = await supabaseClient
-      .from('financial_stats_by_category')
-      .select('*')
-
-    if (categoryError) {
-      console.error('Category stats error:', categoryError)
-    }
+    }))
 
     return new Response(
       JSON.stringify({
         success: true,
         today: {
-          total_sessions: todayData?.total_sessions || 0,
-          confirmed_sessions: todayData?.confirmed_sessions || 0,
-          absent_sessions: todayData?.absent_sessions || 0,
-          pending_sessions: todayData?.pending_sessions || 0,
-          expected_revenue: todayData?.expected_revenue || 0,
-          confirmed_revenue: todayData?.confirmed_revenue || 0,
-          avg_session_price: todayData?.avg_session_price || 0
+          total_sessions: todayData.total_sessions,
+          confirmed_sessions: todayData.confirmed_sessions,
+          absent_sessions: todayData.absent_sessions,
+          pending_sessions: todayData.pending_sessions,
+          expected_revenue: todayData.expected_revenue,
+          confirmed_revenue: todayData.confirmed_revenue,
+          avg_session_price: todayData.avg_session_price
         },
         weekly: {
           total_sessions: weeklyTotals.total_sessions,
@@ -162,7 +189,7 @@ serve(async (req) => {
           avg_session_price: Math.round(avgSessionPrice * 100) / 100,
           daily_data: dailyChartData
         },
-        categories: categoryData || [],
+        categories: [],
         summary_date: today
       }),
       {

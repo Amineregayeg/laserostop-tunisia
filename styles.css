@@ -106,6 +106,23 @@ p { margin: 0 0 1rem 0; }
   width: auto;
 }
 
+.center-select {
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 2px solid var(--primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--primary);
+  background: var(--white);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.center-select:focus {
+  box-shadow: 0 0 0 3px rgba(12, 154, 166, 0.15);
+}
+
 .nav-controls {
   display: flex;
   gap: 0.5rem;
@@ -235,7 +252,7 @@ p { margin: 0 0 1rem 0; }
 
 .calendar {
   display: grid;
-  grid-template-columns: 100px 1fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 100px repeat(6, 1fr);
   min-height: 600px;
 }
 

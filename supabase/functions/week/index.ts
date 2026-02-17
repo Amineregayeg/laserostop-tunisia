@@ -36,6 +36,7 @@ serve(async (req) => {
     const fromParam = url.searchParams.get('from')
     const toParam = url.searchParams.get('to')
     const categoryParam = url.searchParams.get('category')
+    const centerParam = url.searchParams.get('center') || 'tunis'
 
     let startDate: string
     let endDate: string
@@ -44,18 +45,18 @@ serve(async (req) => {
       // Week mode: get bookings for the week starting from the given date
       const start = new Date(startParam)
       
-      // Ensure we start on Tuesday (our business week start)
+      // Ensure we start on Monday (our business week start)
       const dayOfWeek = start.getDay()
-      if (dayOfWeek !== 2) { // Not Tuesday
-        const daysToAdd = dayOfWeek === 0 ? 2 : 2 - dayOfWeek // Sunday = 0, so add 2 days
-        start.setDate(start.getDate() + (daysToAdd < 0 ? daysToAdd + 7 : daysToAdd))
+      if (dayOfWeek !== 1) { // Not Monday
+        const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        start.setDate(start.getDate() - daysToSubtract)
       }
-      
+
       startDate = start.toISOString().split('T')[0]
-      
-      // End on Saturday (5 days from Tuesday: Tue, Wed, Thu, Fri, Sat)
+
+      // End on Saturday (5 days from Monday: Mon, Tue, Wed, Thu, Fri, Sat)
       const end = new Date(start)
-      end.setDate(start.getDate() + 4)
+      end.setDate(start.getDate() + 5)
       endDate = end.toISOString().split('T')[0]
       
     } else if (fromParam && toParam) {
@@ -69,7 +70,7 @@ serve(async (req) => {
       startDate = start.toISOString().split('T')[0]
       
       const end = new Date(start)
-      end.setDate(start.getDate() + 4)
+      end.setDate(start.getDate() + 5)
       endDate = end.toISOString().split('T')[0]
     }
 
@@ -86,15 +87,19 @@ serve(async (req) => {
         category,
         notes,
         status,
+        center,
+        session_duration,
+        session_type,
         created_at,
         updated_at
       `)
       .gte('date', startDate)
       .lte('date', endDate)
+      .eq('center', centerParam)
       .order('slot_start_utc', { ascending: true })
 
     // Add category filter if specified
-    if (categoryParam && ['tabac', 'drogue', 'drogue_dure'].includes(categoryParam)) {
+    if (categoryParam && ['tabac', 'drogue', 'drogue_dure', 'drogue_douce', 'renforcement'].includes(categoryParam)) {
       query = query.eq('category', categoryParam)
     }
 
@@ -162,31 +167,16 @@ serve(async (req) => {
   }
 })
 
-// Helper function to get the start of the business week (Tuesday)
+// Helper function to get the start of the business week (Monday)
 function getWeekStart(date: Date): Date {
   const d = new Date(date)
   const day = d.getDay()
-  
-  // Calculate days to subtract to get to Tuesday
-  // Sunday = 0, Monday = 1, Tuesday = 2, etc.
-  let daysToTuesday: number
-  
-  if (day === 0) { // Sunday
-    daysToTuesday = -5 // Go back to previous Tuesday
-  } else if (day === 1) { // Monday
-    daysToTuesday = -6 // Go back to previous Tuesday
-  } else { // Tuesday onwards
-    daysToTuesday = 2 - day // Go to current or next Tuesday
-    if (daysToTuesday > 0) {
-      daysToTuesday = daysToTuesday - 7 // Go to previous Tuesday instead
-    }
-  }
-  
-  const tuesday = new Date(d)
-  tuesday.setDate(d.getDate() + daysToTuesday)
-  tuesday.setHours(0, 0, 0, 0)
-  
-  return tuesday
+  // Sunday = 0, Monday = 1, etc.
+  const daysToMonday = day === 0 ? -6 : 1 - day
+  const monday = new Date(d)
+  monday.setDate(d.getDate() + daysToMonday)
+  monday.setHours(0, 0, 0, 0)
+  return monday
 }
 
 // Helper function to get day name in French

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tableau de bord - LaserOstop Tunisie</title>
-    <link rel="stylesheet" href="styles.css?v=9">
+    <link rel="stylesheet" href="styles.css?v=10">
     <link rel="manifest" href="pwa/manifest.webmanifest">
     <meta name="theme-color" content="#0C9AA6">
     <meta name="description" content="Tableau de bord LaserOstop Tunisie">
@@ -14,6 +14,11 @@
         <div class="header-content">
             <div class="logo">
                 <img src="assets/logo.webp" alt="LaserOstop Tunisie" class="logo-img">
+                <select id="centerSelect" class="center-select">
+                    <option value="tunis">Tunis</option>
+                    <option value="sfax">Sfax</option>
+                    <option value="all">Total</option>
+                </select>
             </div>
             <nav class="nav-controls">
                 <a href="index.html" class="btn btn-secondary">📅 Planning</a>
@@ -189,7 +194,7 @@
         <p>© 2024 LaserOstop Tunisie - <a href="index.html">📅 Planning</a> • <a href="suivi.html">📋 Suivi</a></p>
     </footer>
 
-    <script src="vendor/supabase.min.js?v=9"></script>
-    <script src="dashboard.js?v=9"></script>
+    <script src="vendor/supabase.min.js?v=10"></script>
+    <script src="dashboard.js?v=10"></script>
 </body>
 </html>

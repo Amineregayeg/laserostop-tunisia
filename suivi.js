@@ -1,6 +1,9 @@
 // ===== Configuration =====
 const TUNIS_TZ = 'Africa/Tunis';
 
+// Center detection from URL
+const CURRENT_CENTER = window.location.pathname.includes('/sfax') ? 'sfax' : 'tunis';
+
 // Supabase Configuration
 const SUPABASE_URL = 'https://llhwtsklaakhfblxxoxn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsaHd0c2tsYWFraGZibHh4b3huIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxNTMzOTYsImV4cCI6MjA3NTcyOTM5Nn0.0pUq5TZHFp88qPAoyTK6sWS_d0_PU-gj8iLv1iTa78I';
@@ -75,9 +78,10 @@ async function loadPendingSessions() {
     
     const params = new URLSearchParams({
       date_filter: dateFilter,
-      ...(categoryFilter && { category: categoryFilter })
+      ...(categoryFilter && { category: categoryFilter }),
+      center: CURRENT_CENTER
     });
-    
+
     const data = await apiCall(`${API.PENDING_SESSIONS}?${params}`);
     currentSessions = data.sessions || [];
     renderSessionsList();
@@ -94,7 +98,7 @@ async function loadPendingSessions() {
 
 async function loadFinancialSummary() {
   try {
-    const data = await apiCall(API.FINANCIAL_SUMMARY);
+    const data = await apiCall(`${API.FINANCIAL_SUMMARY}?center=${CURRENT_CENTER}`);
     updateFinancialSummary(data);
   } catch (error) {
     console.error('Financial summary error:', error);
@@ -605,7 +609,21 @@ function checkAuth() {
 function init() {
   // Check authentication (required)
   if (!checkAuth()) return;
-  
+
+  // Set center dropdown
+  const centerSelect = document.getElementById('centerSelect');
+  if (centerSelect) {
+    centerSelect.value = CURRENT_CENTER;
+    centerSelect.addEventListener('change', (e) => {
+      const newCenter = e.target.value;
+      if (newCenter === 'sfax') {
+        window.location.href = '/sfax/suivi';
+      } else {
+        window.location.href = '/suivi';
+      }
+    });
+  }
+
   // Initialize UI
   initializeEventListeners();
   

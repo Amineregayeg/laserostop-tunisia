@@ -59,7 +59,53 @@
   status = 200
 
 [[redirects]]
+  from = "/suivi"
+  to = "/suivi.html"
+  status = 200
+
+[[redirects]]
   from = "/planning"
+  to = "/index.html"
+  status = 200
+
+# Sfax center routes
+[[redirects]]
+  from = "/sfax/dashboard"
+  to = "/dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/sfax/dashboard.html"
+  to = "/dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/sfax/suivi"
+  to = "/suivi.html"
+  status = 200
+
+[[redirects]]
+  from = "/sfax/suivi.html"
+  to = "/suivi.html"
+  status = 200
+
+[[redirects]]
+  from = "/sfax/planning"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/sfax/index.html"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/sfax"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/sfax/*"
   to = "/index.html"
   status = 200
 

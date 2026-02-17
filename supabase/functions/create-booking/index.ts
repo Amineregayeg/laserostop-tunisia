@@ -17,6 +17,7 @@ interface BookingRequest {
   slot_start_local: string // ISO string in local time
   slot_end_local: string   // ISO string in local time
   force_create?: boolean   // Skip duplicate check
+  center?: string          // 'tunis' or 'sfax'
 }
 
 interface SMTPConfig {
@@ -112,12 +113,16 @@ serve(async (req) => {
       throw new Error('Impossible de réserver un créneau passé')
     }
 
+    // Determine center
+    const center = bookingData.center || 'tunis'
+
     // Check for conflicts
     const { data: existingBookings, error: conflictError } = await supabaseClient
       .from('bookings')
       .select('id')
       .eq('date', bookingDate)
       .eq('status', 'booked')
+      .eq('center', center)
       .eq('slot_start_utc', startUTC.toISOString())
 
     if (conflictError) {
@@ -197,6 +202,7 @@ serve(async (req) => {
       notes: bookingData.notes?.trim() || '',
       session_duration: bookingData.session_duration || 60,
       session_type: bookingData.session_type || 'solo',
+      center: center,
       status: 'booked'
     }
 
@@ -258,30 +264,17 @@ function getTunisTimezoneOffset(date: Date): number {
 
 // Helper function to validate business hours
 function isValidBusinessSlot(dayOfWeek: number, startTime: string, endTime: string): boolean {
-  // Sunday = 0, Monday = 1, Tuesday = 2, etc.
-  // We only work Tuesday (2) to Saturday (6)
-  if (![2, 3, 4, 5, 6].includes(dayOfWeek)) {
+  // Sunday = 0, Monday = 1, ..., Saturday = 6
+  // We work Monday (1) to Saturday (6)
+  if (![1, 2, 3, 4, 5, 6].includes(dayOfWeek)) {
     return false
   }
 
   const start = timeToMinutes(startTime)
   const end = timeToMinutes(endTime)
 
-  switch (dayOfWeek) {
-    case 2: // Tuesday
-    case 3: // Wednesday
-    case 4: // Thursday
-      return start >= timeToMinutes('10:00') && end <= timeToMinutes('19:00')
-    case 5: // Friday
-      return (
-        (start >= timeToMinutes('10:00') && end <= timeToMinutes('15:00')) ||
-        (start === timeToMinutes('14:30') && end === timeToMinutes('15:30'))
-      )
-    case 6: // Saturday
-      return start >= timeToMinutes('10:00') && end <= timeToMinutes('18:00')
-    default:
-      return false
-  }
+  // All days: 8:00 to 20:00
+  return start >= timeToMinutes('08:00') && end <= timeToMinutes('20:00')
 }
 
 function timeToMinutes(time: string): number {

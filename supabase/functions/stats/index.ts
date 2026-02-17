@@ -34,6 +34,7 @@ serve(async (req) => {
     const url = new URL(req.url)
     const fromParam = url.searchParams.get('from')
     const toParam = url.searchParams.get('to')
+    const centerParam = url.searchParams.get('center') || 'tunis'
 
     let startDate: string
     let endDate: string
@@ -42,22 +43,29 @@ serve(async (req) => {
       startDate = fromParam
       endDate = toParam
     } else {
-      // Default to current week (Tuesday to Saturday)
+      // Default to current week (Monday to Saturday)
       const now = new Date()
       const start = getWeekStart(now)
       startDate = start.toISOString().split('T')[0]
-      
+
       const end = new Date(start)
-      end.setDate(start.getDate() + 4) // Saturday
+      end.setDate(start.getDate() + 5) // Saturday
       endDate = end.toISOString().split('T')[0]
     }
 
     // Get overall statistics
-    const { data: allBookings, error: allError } = await supabaseClient
+    let statsQuery = supabaseClient
       .from('bookings')
       .select('id, category, status, date, slot_start_utc')
       .gte('date', startDate)
       .lte('date', endDate)
+
+    // Filter by center (unless 'all')
+    if (centerParam !== 'all') {
+      statsQuery = statsQuery.eq('center', centerParam)
+    }
+
+    const { data: allBookings, error: allError } = await statsQuery
 
     if (allError) {
       console.error('Database error:', allError)
@@ -75,7 +83,7 @@ serve(async (req) => {
     // Calculate weekly bookings (for current week only)
     const currentWeekStart = getWeekStart(new Date())
     const currentWeekEnd = new Date(currentWeekStart)
-    currentWeekEnd.setDate(currentWeekStart.getDate() + 4)
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 5)
 
     const weeklyBookings = bookings.filter(b => {
       const bookingDate = new Date(b.date)
@@ -86,7 +94,9 @@ serve(async (req) => {
     const categories = {
       tabac: bookings.filter(b => b.category === 'tabac').length,
       drogue: bookings.filter(b => b.category === 'drogue').length,
-      drogue_dure: bookings.filter(b => b.category === 'drogue_dure').length
+      drogue_dure: bookings.filter(b => b.category === 'drogue_dure').length,
+      drogue_douce: bookings.filter(b => b.category === 'drogue_douce').length,
+      renforcement: bookings.filter(b => b.category === 'renforcement').length
     }
 
     // Calculate fill rate (estimated based on available slots)
@@ -162,29 +172,16 @@ serve(async (req) => {
   }
 })
 
-// Helper function to get the start of the business week (Tuesday)
+// Helper function to get the start of the business week (Monday)
 function getWeekStart(date: Date): Date {
   const d = new Date(date)
   const day = d.getDay()
-  
-  // Calculate days to get to Tuesday
-  let daysToTuesday: number
-  
-  if (day === 0) { // Sunday
-    daysToTuesday = 2 // Go forward to Tuesday
-  } else if (day === 1) { // Monday  
-    daysToTuesday = 1 // Go forward to Tuesday
-  } else if (day === 2) { // Tuesday
-    daysToTuesday = 0 // Already Tuesday
-  } else { // Wednesday onwards
-    daysToTuesday = 7 - (day - 2) // Go to next Tuesday
-  }
-  
-  const tuesday = new Date(d)
-  tuesday.setDate(d.getDate() + daysToTuesday)
-  tuesday.setHours(0, 0, 0, 0)
-  
-  return tuesday
+  // Sunday = 0, Monday = 1, etc.
+  const daysToMonday = day === 0 ? -6 : 1 - day
+  const monday = new Date(d)
+  monday.setDate(d.getDate() + daysToMonday)
+  monday.setHours(0, 0, 0, 0)
+  return monday
 }
 
 // Calculate estimated fill rate based on available slots
@@ -194,23 +191,12 @@ function calculateFillRate(startDate: string, endDate: string, confirmedBookings
   
   let totalSlots = 0
   
-  // Count available slots for each day
+  // Count available slots for each day (Mon-Sat, 8am-8pm = 24 half-hour slots)
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dayOfWeek = d.getDay()
-    
-    switch (dayOfWeek) {
-      case 2: // Tuesday
-      case 3: // Wednesday
-      case 4: // Thursday
-        totalSlots += 8 // 8 slots (10-18, hourly)
-        break
-      case 5: // Friday
-        totalSlots += 6 // 6 slots (including 14:30-15:30)
-        break
-      case 6: // Saturday
-        totalSlots += 7 // 7 slots (10-17, hourly)
-        break
-      // Sunday and Monday are closed
+    // Monday (1) to Saturday (6): 24 half-hour slots (8:00-20:00)
+    if (dayOfWeek >= 1 && dayOfWeek <= 6) {
+      totalSlots += 24
     }
   }
   
@@ -231,7 +217,7 @@ function calculateDailyStats(bookings: any[], startDate: string, endDate: string
     const dayOfWeek = d.getDay()
     
     // Only include business days
-    if ([2, 3, 4, 5, 6].includes(dayOfWeek)) {
+    if ([1, 2, 3, 4, 5, 6].includes(dayOfWeek)) {
       const dayBookings = bookings.filter(b => b.date === dateStr)
       
       dailyStats[dateStr] = {

@@ -34,6 +34,7 @@ serve(async (req) => {
     const url = new URL(req.url)
     const dateFilter = url.searchParams.get('date_filter') || 'today'
     const categoryFilter = url.searchParams.get('category')
+    const centerParam = url.searchParams.get('center') || 'tunis'
 
     // Build date filter conditions
     let dateCondition = ''
@@ -59,21 +60,26 @@ serve(async (req) => {
         dateCondition = `date = '${today}'`
     }
 
-    // Build query
+    // Build query directly on bookings table for center support
     let query = supabaseClient
-      .from('pending_followup')
-      .select('*')
+      .from('bookings')
+      .select('id, client_name, phone, date, slot_start_utc, slot_end_utc, session_duration, session_type, category, notes, status, session_confirmed, center')
+      .eq('session_confirmed', false)
+      .in('status', ['booked', 'completed'])
+      .gte('date', weekAgo)
 
-    // Apply filters
-    if (dateCondition) {
-      // Note: Using rpc or raw SQL might be needed for complex date conditions
-      if (dateFilter === 'today') {
-        query = query.eq('date', today)
-      } else if (dateFilter === 'yesterday') {
-        query = query.eq('date', yesterday)
-      } else if (dateFilter === 'week' || dateFilter === 'all') {
-        query = query.gte('date', weekAgo)
-      }
+    // Apply center filter
+    if (centerParam !== 'all') {
+      query = query.eq('center', centerParam)
+    }
+
+    // Apply date filters
+    if (dateFilter === 'today') {
+      query = query.eq('date', today)
+    } else if (dateFilter === 'yesterday') {
+      query = query.eq('date', yesterday)
+    } else if (dateFilter === 'week' || dateFilter === 'all') {
+      query = query.gte('date', weekAgo)
     }
 
     if (categoryFilter) {

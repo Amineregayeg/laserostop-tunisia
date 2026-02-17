@@ -1,6 +1,9 @@
 // ===== Configuration =====
 const TUNIS_TZ = 'Africa/Tunis';
 
+// Center detection from URL
+const CURRENT_CENTER = window.location.pathname.includes('/sfax') ? 'sfax' : 'tunis';
+
 // Supabase Configuration
 const SUPABASE_URL = 'https://llhwtsklaakhfblxxoxn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsaHd0c2tsYWFraGZibHh4b3huIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxNTMzOTYsImV4cCI6MjA3NTcyOTM5Nn0.0pUq5TZHFp88qPAoyTK6sWS_d0_PU-gj8iLv1iTa78I';
@@ -41,6 +44,7 @@ const STRINGS = {
 let allBookings = [];
 let filteredBookings = [];
 let currentSort = { field: 'date', direction: 'desc' };
+let currentCenter = CURRENT_CENTER;
 
 // ===== Date Utilities =====
 function formatDate(dateStr) {
@@ -70,17 +74,13 @@ function getWeekStart(date = new Date()) {
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
   const monday = new Date(d.setDate(diff));
-  
-  // Move to Tuesday (start of our work week)
-  const tuesday = new Date(monday);
-  tuesday.setDate(monday.getDate() + 1);
-  
-  return tuesday;
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 }
 
 function getWeekEnd(weekStart) {
   const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 4); // Saturday
+  weekEnd.setDate(weekStart.getDate() + 5); // Saturday
   return weekEnd;
 }
 
@@ -117,6 +117,7 @@ async function loadStats(dateFrom, dateTo) {
     const params = new URLSearchParams();
     if (dateFrom) params.append('from', dateFrom);
     if (dateTo) params.append('to', dateTo);
+    params.append('center', currentCenter || CURRENT_CENTER);
 
     const data = await apiCall(`${API.STATS}?${params}`);
     return data;
@@ -134,7 +135,7 @@ async function loadStats(dateFrom, dateTo) {
 
 async function loadFinancialData() {
   try {
-    const data = await apiCall(API.FINANCIAL);
+    const data = await apiCall(`${API.FINANCIAL}?center=${currentCenter || CURRENT_CENTER}`);
     return data;
   } catch (error) {
     console.error('Financial data error:', error);
@@ -148,6 +149,7 @@ async function loadBookings(dateFrom, dateTo, category) {
     if (dateFrom) params.append('from', dateFrom);
     if (dateTo) params.append('to', dateTo);
     if (category) params.append('category', category);
+    params.append('center', currentCenter || CURRENT_CENTER);
 
     const data = await apiCall(`${API.WEEK}?${params}`);
     return data.bookings || [];
@@ -182,7 +184,8 @@ async function exportBookings() {
     if (dateFrom) params.append('from', dateFrom);
     if (dateTo) params.append('to', dateTo);
     if (category) params.append('category', category);
-    
+    params.append('center', currentCenter || CURRENT_CENTER);
+
     const response = await fetch(`${API.EXPORT}?${params}`);
     
     if (!response.ok) {
@@ -667,6 +670,25 @@ function checkAuth() {
 function init() {
   // Check authentication (required)
   if (!checkAuth()) return;
+
+  // Set center dropdown
+  const centerSelect = document.getElementById('centerSelect');
+  if (centerSelect) {
+    centerSelect.value = currentCenter;
+    centerSelect.addEventListener('change', (e) => {
+      currentCenter = e.target.value;
+      // For 'all', stay on same page; for tunis/sfax, can navigate or just reload data
+      if (currentCenter === 'all') {
+        loadDashboardData();
+      } else if (currentCenter === 'sfax' && !window.location.pathname.includes('/sfax')) {
+        window.location.href = '/sfax/dashboard';
+      } else if (currentCenter === 'tunis' && window.location.pathname.includes('/sfax')) {
+        window.location.href = '/dashboard';
+      } else {
+        loadDashboardData();
+      }
+    });
+  }
 
   // Initialize Supabase client
   initializeSupabase();

@@ -1,6 +1,9 @@
 // ===== Configuration =====
 const TUNIS_TZ = 'Africa/Tunis';
 
+// Center detection from URL
+const CURRENT_CENTER = window.location.pathname.includes('/sfax') ? 'sfax' : 'tunis';
+
 // Supabase Configuration
 const SUPABASE_URL = 'https://llhwtsklaakhfblxxoxn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsaHd0c2tsYWFraGZibHh4b3huIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxNTMzOTYsImV4cCI6MjA3NTcyOTM5Nn0.0pUq5TZHFp88qPAoyTK6sWS_d0_PU-gj8iLv1iTa78I';
@@ -16,7 +19,7 @@ const API = {
 };
 
 const STRINGS = {
-  DAYS: ['Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
+  DAYS: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
   CATEGORIES: {
     tabac: 'Arrêt du tabac',
     drogue: 'Sevrage drogue',
@@ -43,6 +46,7 @@ const STRINGS = {
 // ===== Time Slots Configuration =====
 function generateTimeSlots() {
   const slots = {
+    lundi: [],
     mardi: [],
     mercredi: [],
     jeudi: [],
@@ -50,27 +54,13 @@ function generateTimeSlots() {
     samedi: []
   };
 
-  // Generate 30-minute slots for each day
-  // Tuesday, Wednesday, Thursday: 10:00 → 19:00
-  ['mardi', 'mercredi', 'jeudi'].forEach(day => {
-    for (let hour = 10; hour < 19; hour++) {
+  // Generate 30-minute slots for all days: 08:00 → 20:00
+  Object.keys(slots).forEach(day => {
+    for (let hour = 8; hour < 20; hour++) {
       slots[day].push(`${hour.toString().padStart(2, '0')}:00-${hour.toString().padStart(2, '0')}:30`);
       slots[day].push(`${hour.toString().padStart(2, '0')}:30-${(hour + 1).toString().padStart(2, '0')}:00`);
     }
   });
-
-  // Friday: 10:00 → 15:30
-  for (let hour = 10; hour < 15; hour++) {
-    slots.vendredi.push(`${hour.toString().padStart(2, '0')}:00-${hour.toString().padStart(2, '0')}:30`);
-    slots.vendredi.push(`${hour.toString().padStart(2, '0')}:30-${(hour + 1).toString().padStart(2, '0')}:00`);
-  }
-  slots.vendredi.push('15:00-15:30');
-
-  // Saturday: 10:00 → 18:00
-  for (let hour = 10; hour < 18; hour++) {
-    slots.samedi.push(`${hour.toString().padStart(2, '0')}:00-${hour.toString().padStart(2, '0')}:30`);
-    slots.samedi.push(`${hour.toString().padStart(2, '0')}:30-${(hour + 1).toString().padStart(2, '0')}:00`);
-  }
 
   return slots;
 }
@@ -96,12 +86,8 @@ function getWeekStart(date = new Date()) {
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
   const monday = new Date(d.setDate(diff));
-  
-  // Move to Tuesday (start of our work week)
-  const tuesday = new Date(monday);
-  tuesday.setDate(monday.getDate() + 1);
-  
-  return tuesday;
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 }
 
 function formatDate(date) {
@@ -158,7 +144,7 @@ function isSlotInPast(date, timeSlot) {
 // ===== Calendar Generation =====
 function generateWeekDates(weekStart) {
   const dates = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const date = new Date(weekStart);
     date.setDate(weekStart.getDate() + i);
     dates.push(date);
@@ -425,9 +411,10 @@ function timeToMinutes(timeStr) {
 // ===== Week Navigation =====
 function updateWeekTitle() {
   const weekEnd = new Date(currentWeekStart);
-  weekEnd.setDate(currentWeekStart.getDate() + 4); // Saturday
+  weekEnd.setDate(currentWeekStart.getDate() + 5); // Saturday
   
-  const title = `Planning LaserOstop — Semaine du ${formatDate(currentWeekStart)} au ${formatDate(weekEnd)}`;
+  const centerLabel = CURRENT_CENTER === 'sfax' ? 'Sfax' : 'Tunis';
+  const title = `Planning LaserOstop ${centerLabel} — Semaine du ${formatDate(currentWeekStart)} au ${formatDate(weekEnd)}`;
   document.getElementById('weekTitle').textContent = title;
 }
 
@@ -483,7 +470,7 @@ async function apiCall(url, options = {}) {
 async function loadWeekBookings() {
   try {
     const startDate = currentWeekStart.toISOString().split('T')[0];
-    const data = await apiCall(`${API.WEEK}?start=${startDate}`);
+    const data = await apiCall(`${API.WEEK}?start=${startDate}&center=${CURRENT_CENTER}`);
     currentBookings = data.bookings || [];
     renderCalendar();
   } catch (error) {
@@ -542,7 +529,7 @@ function openBookingModal(date, timeSlot) {
   
   // Set slot info
   const dateObj = new Date(date);
-  const dayName = STRINGS.DAYS[dateObj.getDay() - 2]; // Adjust for Tuesday=0
+  const dayName = STRINGS.DAYS[dateObj.getDay() - 1]; // Adjust for Tuesday=0
   const formattedDate = formatDate(dateObj);
   slotInfo.textContent = `${dayName} ${formattedDate} de ${timeSlot}`;
   
@@ -663,7 +650,8 @@ async function handleBookingSubmit(event) {
       session_duration: duration,
       session_type: sessionType,
       slot_start_local: `${form.dataset.date}T${startTime}:00`,
-      slot_end_local: `${form.dataset.date}T${calculatedEndTime}:00`
+      slot_end_local: `${form.dataset.date}T${calculatedEndTime}:00`,
+      center: CURRENT_CENTER
     };
     
     const errors = validateBookingForm(bookingData);
@@ -880,7 +868,7 @@ function getDateFromCalendarCell(cell) {
   if (cellIndex === -1) return null;
   
   // Calculate which day column this cell is in (skip time column)
-  const gridCols = 6; // 1 time column + 5 day columns
+  const gridCols = 7; // 1 time column + 6 day columns
   const colIndex = cellIndex % gridCols;
   
   if (colIndex === 0) return null; // Time column
@@ -899,7 +887,7 @@ function getTimeSlotFromCalendarCell(cell) {
   
   if (cellIndex === -1) return null;
   
-  const gridCols = 6; // 1 time column + 5 day columns
+  const gridCols = 7; // 1 time column + 6 day columns
   const rowIndex = Math.floor(cellIndex / gridCols);
   
   if (rowIndex === 0) return null; // Header row
@@ -919,7 +907,7 @@ function showConflictResolutionModal(movingBooking, conflictingBooking, targetDa
   
   // Format the conflict description
   const targetDateObj = new Date(targetDate);
-  const dayName = STRINGS.DAYS[targetDateObj.getDay() - 2];
+  const dayName = STRINGS.DAYS[targetDateObj.getDay() - 1];
   const formattedDate = formatDate(targetDateObj);
   
   description.textContent = `Vous tentez de déplacer la séance de ${movingBooking.client_name} vers ${dayName} ${formattedDate} ${targetTimeSlot}, mais ce créneau est déjà occupé par ${conflictingBooking.client_name}.`;
@@ -976,7 +964,8 @@ async function moveBooking(booking, targetDate, targetTimeSlot) {
       session_duration: duration,
       session_type: booking.session_type || 'solo',
       slot_start_local: `${targetDate}T${startTime}:00`,
-      slot_end_local: `${targetDate}T${calculatedEndTime}:00`
+      slot_end_local: `${targetDate}T${calculatedEndTime}:00`,
+      center: CURRENT_CENTER
     };
     
     console.log('New booking data:', newBookingData);
@@ -1054,7 +1043,7 @@ async function handleMoveDown(movingBooking, conflictingBooking, targetDate, tar
   // Find the next available slot after the target slot
   const [targetStartTime] = targetTimeSlot.split('-');
   const targetDateObj = new Date(targetDate);
-  const dayKey = STRINGS.DAYS[targetDateObj.getDay() - 2].toLowerCase();
+  const dayKey = STRINGS.DAYS[targetDateObj.getDay() - 1].toLowerCase();
   const daySlots = TIME_SLOTS[dayKey] || [];
   
   const targetSlotIndex = daySlots.indexOf(targetTimeSlot);
@@ -1600,9 +1589,9 @@ function initializeRealtime() {
 
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  supabaseClient.channel('calendar-bookings')
+  supabaseClient.channel(`calendar-bookings-${CURRENT_CENTER}`)
     .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'bookings' },
+      { event: '*', schema: 'public', table: 'bookings', filter: `center=eq.${CURRENT_CENTER}` },
       () => {
         loadWeekBookings();
       }
@@ -1624,6 +1613,20 @@ function init() {
 
   // Set initial week
   currentWeekStart = getWeekStart();
+
+  // Set center dropdown
+  const centerSelect = document.getElementById('centerSelect');
+  if (centerSelect) {
+    centerSelect.value = CURRENT_CENTER;
+    centerSelect.addEventListener('change', (e) => {
+      const newCenter = e.target.value;
+      if (newCenter === 'sfax') {
+        window.location.href = '/sfax';
+      } else {
+        window.location.href = '/';
+      }
+    });
+  }
 
   // Initialize UI
   updateWeekTitle();
