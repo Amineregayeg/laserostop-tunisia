@@ -205,13 +205,13 @@ function updateFinancialSummary(data) {
   const today = data.today || {};
   const weekly = data.weekly || {};
   
-  document.getElementById('todayConfirmed').textContent = 
+  document.getElementById('todayConfirmed').textContent =
     `${today.confirmed_sessions || 0} séances • ${(today.confirmed_revenue || 0).toLocaleString()} DT`;
-  
-  document.getElementById('todayPending').textContent = 
-    `${today.pending_sessions || 0} séances • ${(today.expected_revenue || 0).toLocaleString()} DT estimé`;
-  
-  document.getElementById('todayAbsent').textContent = 
+
+  document.getElementById('todayPending').textContent =
+    `${today.pending_sessions || 0} séances (non traitées)`;
+
+  document.getElementById('todayAbsent').textContent =
     `${today.absent_sessions || 0} séances • 0 DT`;
   
   document.getElementById('weeklyTotal').textContent = 

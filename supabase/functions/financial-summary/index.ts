@@ -7,6 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
 }
 
+// Standard prices by category (used when actual_price/standard_price not yet set)
+const STANDARD_PRICES: Record<string, number> = {
+  tabac: 500,
+  drogue: 750,
+  drogue_dure: 1000,
+  drogue_douce: 600,
+  renforcement: 0
+}
+
+// Get effective price: actual_price > standard_price > category default
+function getEffectivePrice(booking: any): number {
+  if (booking.actual_price != null && booking.actual_price > 0) return booking.actual_price
+  if (booking.standard_price != null && booking.standard_price > 0) return booking.standard_price
+  return STANDARD_PRICES[booking.category] ?? 0
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -57,7 +73,7 @@ serve(async (req) => {
           center
         `)
         .gte('date', thirtyDaysAgo)
-        .eq('session_confirmed', true)
+        .neq('status', 'cancelled')
         .order('date', { ascending: false })
 
       if (centerParam !== 'all') {
@@ -83,11 +99,12 @@ serve(async (req) => {
       )
     }
 
-    // Get today's bookings directly (center-aware)
+    // Get today's bookings directly (center-aware), exclude cancelled
     let todayQuery = supabaseClient
       .from('bookings')
       .select('id, category, attendance_status, standard_price, actual_price, status')
       .eq('date', today)
+      .neq('status', 'cancelled')
     if (centerParam !== 'all') {
       todayQuery = todayQuery.eq('center', centerParam)
     }
@@ -97,25 +114,32 @@ serve(async (req) => {
       console.error('Today bookings error:', todayError)
     }
 
+    // Business rule: all bookings count as confirmed UNLESS marked absent
     const tb = todayBookings || []
+    const nonAbsent = tb.filter(b => b.attendance_status !== 'absent')
+    const absent = tb.filter(b => b.attendance_status === 'absent')
+    const pendingInSuivi = tb.filter(b => !b.attendance_status || b.attendance_status === 'pending')
+
+    const todayConfirmedRevenue = nonAbsent.reduce((sum, b) => sum + getEffectivePrice(b), 0)
     const todayData = {
       total_sessions: tb.length,
-      confirmed_sessions: tb.filter(b => b.attendance_status === 'present').length,
-      absent_sessions: tb.filter(b => b.attendance_status === 'absent').length,
-      pending_sessions: tb.filter(b => b.attendance_status === 'pending' || !b.attendance_status).length,
-      expected_revenue: tb.reduce((sum, b) => sum + (b.standard_price || 0), 0),
-      confirmed_revenue: tb.filter(b => b.attendance_status === 'present').reduce((sum, b) => sum + (b.actual_price || 0), 0),
+      confirmed_sessions: nonAbsent.length,
+      absent_sessions: absent.length,
+      pending_sessions: pendingInSuivi.length,
+      expected_revenue: tb.reduce((sum, b) => sum + getEffectivePrice(b), 0),
+      confirmed_revenue: todayConfirmedRevenue,
       avg_session_price: 0
     }
     if (todayData.confirmed_sessions > 0) {
       todayData.avg_session_price = Math.round((todayData.confirmed_revenue / todayData.confirmed_sessions) * 100) / 100
     }
 
-    // Get weekly bookings directly (center-aware)
+    // Get weekly bookings directly (center-aware), exclude cancelled
     let weeklyQuery = supabaseClient
       .from('bookings')
       .select('id, date, category, attendance_status, standard_price, actual_price, status')
       .gte('date', weekAgo)
+      .neq('status', 'cancelled')
     if (centerParam !== 'all') {
       weeklyQuery = weeklyQuery.eq('center', centerParam)
     }
@@ -134,13 +158,17 @@ serve(async (req) => {
       dailyMap.get(d)!.push(b)
     })
 
-    const weeklyData = Array.from(dailyMap.entries()).map(([date, bookings]) => ({
-      date,
-      total_sessions: bookings.length,
-      confirmed_sessions: bookings.filter(b => b.attendance_status === 'present').length,
-      confirmed_revenue: bookings.filter(b => b.attendance_status === 'present').reduce((sum, b) => sum + (b.actual_price || 0), 0),
-      expected_revenue: bookings.reduce((sum, b) => sum + (b.standard_price || 0), 0)
-    })).sort((a, b) => a.date.localeCompare(b.date))
+    // Business rule: all non-absent bookings count toward revenue
+    const weeklyData = Array.from(dailyMap.entries()).map(([date, bookings]) => {
+      const dayNonAbsent = bookings.filter(b => b.attendance_status !== 'absent')
+      return {
+        date,
+        total_sessions: bookings.length,
+        confirmed_sessions: dayNonAbsent.length,
+        confirmed_revenue: dayNonAbsent.reduce((sum, b) => sum + getEffectivePrice(b), 0),
+        expected_revenue: bookings.reduce((sum, b) => sum + getEffectivePrice(b), 0)
+      }
+    }).sort((a, b) => a.date.localeCompare(b.date))
 
     // Calculate weekly totals
     const weeklyTotals = weeklyData.reduce((acc, day) => ({
@@ -161,7 +189,7 @@ serve(async (req) => {
 
     // Prepare daily chart data for the last 7 days
     const dailyChartData = weeklyData.map(day => ({
-      day: new Date(day.date).toLocaleDateString('fr-TN', {
+      day: new Date(day.date + 'T12:00:00').toLocaleDateString('fr-TN', {
         weekday: 'short',
         timeZone: 'Africa/Tunis'
       }),

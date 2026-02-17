@@ -256,9 +256,10 @@ function convertToCSV(bookings) {
 
 // ===== Dashboard Rendering =====
 function renderKPIs(stats) {
-  document.getElementById('weeklyBookings').textContent = stats.weekly_bookings || 0;
-  document.getElementById('fillRate').textContent = `${(stats.fill_rate || 0).toFixed(1)}%`;
-  document.getElementById('totalBookings').textContent = stats.total_bookings || 0;
+  const summary = stats.summary || {};
+  document.getElementById('weeklyBookings').textContent = summary.weekly_bookings || 0;
+  document.getElementById('fillRate').textContent = `${(summary.fill_rate || 0).toFixed(1)}%`;
+  document.getElementById('totalBookings').textContent = summary.total_bookings || 0;
 }
 
 function renderCategoryChart(categories) {

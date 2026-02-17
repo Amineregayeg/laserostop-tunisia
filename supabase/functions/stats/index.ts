@@ -46,11 +46,11 @@ serve(async (req) => {
       // Default to current week (Monday to Saturday)
       const now = new Date()
       const start = getWeekStart(now)
-      startDate = start.toISOString().split('T')[0]
+      startDate = start.toLocaleDateString('sv-SE', { timeZone: 'Africa/Tunis' })
 
       const end = new Date(start)
       end.setDate(start.getDate() + 5) // Saturday
-      endDate = end.toISOString().split('T')[0]
+      endDate = end.toLocaleDateString('sv-SE', { timeZone: 'Africa/Tunis' })
     }
 
     // Get overall statistics
@@ -213,7 +213,7 @@ function calculateDailyStats(bookings: any[], startDate: string, endDate: string
   const end = new Date(endDate)
   
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().split('T')[0]
+    const dateStr = d.toLocaleDateString('sv-SE', { timeZone: 'Africa/Tunis' })
     const dayOfWeek = d.getDay()
     
     // Only include business days
