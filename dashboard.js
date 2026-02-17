@@ -10,7 +10,8 @@ const API = {
   CREATE: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/create-booking',
   CANCEL: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/cancel-booking',
   STATS: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/stats',
-  EXPORT: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/export'
+  EXPORT: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/export',
+  FINANCIAL: 'https://llhwtsklaakhfblxxoxn.functions.supabase.co/financial-summary'
 };
 
 const STRINGS = {
@@ -116,18 +117,28 @@ async function loadStats(dateFrom, dateTo) {
     const params = new URLSearchParams();
     if (dateFrom) params.append('from', dateFrom);
     if (dateTo) params.append('to', dateTo);
-    
+
     const data = await apiCall(`${API.STATS}?${params}`);
     return data;
   } catch (error) {
     showToast(error.message || STRINGS.ERRORS.UNKNOWN_ERROR, 'error');
-    return { 
-      weekly_bookings: 0, 
-      fill_rate: 0, 
-      total_bookings: 0, 
-      categories: { tabac: 0, drogue: 0, drogue_dure: 0 },
+    return {
+      weekly_bookings: 0,
+      fill_rate: 0,
+      total_bookings: 0,
+      categories: { tabac: 0, drogue: 0, drogue_dure: 0, drogue_douce: 0, renforcement: 0 },
       bookings: []
     };
+  }
+}
+
+async function loadFinancialData() {
+  try {
+    const data = await apiCall(API.FINANCIAL);
+    return data;
+  } catch (error) {
+    console.error('Financial data error:', error);
+    return null;
   }
 }
 
@@ -137,13 +148,28 @@ async function loadBookings(dateFrom, dateTo, category) {
     if (dateFrom) params.append('from', dateFrom);
     if (dateTo) params.append('to', dateTo);
     if (category) params.append('category', category);
-    
+
     const data = await apiCall(`${API.WEEK}?${params}`);
     return data.bookings || [];
   } catch (error) {
     showToast(error.message || STRINGS.ERRORS.UNKNOWN_ERROR, 'error');
     return [];
   }
+}
+
+function renderFinancialKPIs(financial) {
+  const revenueEl = document.getElementById('confirmedRevenue');
+  const expectedEl = document.getElementById('expectedRevenue');
+  const pendingEl = document.getElementById('pendingSessions');
+
+  if (!financial || !revenueEl) return;
+
+  const today = financial.today || {};
+  const weekly = financial.weekly || {};
+
+  revenueEl.textContent = `${weekly.total_revenue || 0} DT`;
+  expectedEl.textContent = `${weekly.expected_revenue || 0} DT`;
+  pendingEl.textContent = today.pending_sessions || 0;
 }
 
 async function exportBookings() {
@@ -281,31 +307,27 @@ function renderBookingsTable(bookings) {
 }
 
 // ===== Filtering and Sorting =====
-function applyFilters() {
+async function applyFilters() {
   const dateFrom = document.getElementById('dateFrom').value;
   const dateTo = document.getElementById('dateTo').value;
   const category = document.getElementById('categoryFilter').value;
-  
-  filteredBookings = allBookings.filter(booking => {
-    let matches = true;
-    
-    if (dateFrom) {
-      const bookingDate = new Date(booking.slot_start_utc).toLocaleDateString('sv-SE', { timeZone: TUNIS_TZ });
-      matches = matches && bookingDate >= dateFrom;
-    }
-    
-    if (dateTo) {
-      const bookingDate = new Date(booking.slot_start_utc).toLocaleDateString('sv-SE', { timeZone: TUNIS_TZ });
-      matches = matches && bookingDate <= dateTo;
-    }
-    
-    if (category) {
-      matches = matches && booking.category === category;
-    }
-    
-    return matches;
-  });
-  
+
+  // Re-fetch stats and bookings for the new date range
+  const [stats, bookings] = await Promise.all([
+    loadStats(dateFrom, dateTo),
+    loadBookings(dateFrom, dateTo, category)
+  ]);
+
+  renderKPIs(stats);
+  renderCategoryChart(stats.categories || {});
+
+  allBookings = bookings;
+  filteredBookings = [...allBookings];
+
+  if (category) {
+    filteredBookings = filteredBookings.filter(b => b.category === category);
+  }
+
   sortBookings(currentSort.field, currentSort.direction);
   renderBookingsTable(filteredBookings);
 }
@@ -314,10 +336,8 @@ function resetFilters() {
   document.getElementById('dateFrom').value = '';
   document.getElementById('dateTo').value = '';
   document.getElementById('categoryFilter').value = '';
-  
-  filteredBookings = [...allBookings];
-  sortBookings(currentSort.field, currentSort.direction);
-  renderBookingsTable(filteredBookings);
+
+  loadDashboardData();
 }
 
 function sortBookings(field, direction = 'asc') {
@@ -518,23 +538,31 @@ async function loadDashboardData() {
   // Set default date range to current week
   const weekStart = getWeekStart();
   const weekEnd = getWeekEnd(weekStart);
-  
-  document.getElementById('dateFrom').value = weekStart.toISOString().split('T')[0];
-  document.getElementById('dateTo').value = weekEnd.toISOString().split('T')[0];
-  
-  // Load stats and bookings
-  const [stats, bookings] = await Promise.all([
-    loadStats(weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]),
-    loadBookings()
+
+  const dateFromInput = document.getElementById('dateFrom');
+  const dateToInput = document.getElementById('dateTo');
+
+  if (!dateFromInput.value) dateFromInput.value = weekStart.toISOString().split('T')[0];
+  if (!dateToInput.value) dateToInput.value = weekEnd.toISOString().split('T')[0];
+
+  const dateFrom = dateFromInput.value;
+  const dateTo = dateToInput.value;
+
+  // Load stats, bookings, and financial data in parallel
+  const [stats, bookings, financial] = await Promise.all([
+    loadStats(dateFrom, dateTo),
+    loadBookings(dateFrom, dateTo),
+    loadFinancialData()
   ]);
-  
+
   // Update UI
   renderKPIs(stats);
   renderCategoryChart(stats.categories || {});
-  
+  renderFinancialKPIs(financial);
+
   allBookings = bookings;
   filteredBookings = [...allBookings];
-  
+
   // Initial sort by date (newest first)
   sortBookings('date', 'desc');
   renderBookingsTable(filteredBookings);

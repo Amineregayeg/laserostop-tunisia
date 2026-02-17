@@ -303,6 +303,13 @@ p { margin: 0 0 1rem 0; }
   cursor: not-allowed;
 }
 
+.cell--booked.cell--past {
+  background-color: var(--brand);
+  opacity: 0.5;
+  color: var(--white);
+  cursor: default;
+}
+
 .booking-info {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -369,6 +376,8 @@ p { margin: 0 0 1rem 0; }
 .category-badge--tabac { background-color: #e3f2fd; color: #1976d2; }
 .category-badge--drogue { background-color: #f3e5f5; color: #7b1fa2; }
 .category-badge--drogue_dure { background-color: #ffebee; color: #d32f2f; }
+.category-badge--drogue_douce { background-color: #fff3e0; color: #f57c00; }
+.category-badge--renforcement { background-color: #e8f5e9; color: #388e3c; }
 
 /* ===== Mobile Calendar ===== */
 @media (max-width: 768px) {
@@ -835,6 +844,8 @@ p { margin: 0 0 1rem 0; }
 .bar.tabac { background-color: #1976d2; }
 .bar.drogue { background-color: #7b1fa2; }
 .bar.drogue_dure { background-color: #d32f2f; }
+.bar.drogue_douce { background-color: #f57c00; }
+.bar.renforcement { background-color: #388e3c; }
 
 .bar-value {
   text-align: right;

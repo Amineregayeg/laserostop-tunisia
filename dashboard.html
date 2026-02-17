@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tableau de bord - LaserOstop Tunisie</title>
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
     <link rel="manifest" href="pwa/manifest.webmanifest">
     <meta name="theme-color" content="#0C9AA6">
     <meta name="description" content="Tableau de bord LaserOstop Tunisie">
@@ -38,6 +38,18 @@
             <div class="kpi-card">
                 <h3>Total réservations</h3>
                 <div id="totalBookings" class="kpi-value">-</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Revenu confirmé (semaine)</h3>
+                <div id="confirmedRevenue" class="kpi-value">-</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Revenu attendu (semaine)</h3>
+                <div id="expectedRevenue" class="kpi-value">-</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Séances en attente (aujourd'hui)</h3>
+                <div id="pendingSessions" class="kpi-value">-</div>
             </div>
         </section>
 
@@ -98,6 +110,20 @@
                             <div class="bar drogue_dure" data-category="drogue_dure" style="width: 0%"></div>
                         </div>
                         <div class="bar-value" id="drogueDureCount">0</div>
+                    </div>
+                    <div class="chart-bar">
+                        <div class="bar-label">Sevrage drogues douces</div>
+                        <div class="bar-wrapper">
+                            <div class="bar drogue_douce" data-category="drogue_douce" style="width: 0%"></div>
+                        </div>
+                        <div class="bar-value" id="drogue_douceCount">0</div>
+                    </div>
+                    <div class="chart-bar">
+                        <div class="bar-label">Renforcement (gratuit)</div>
+                        <div class="bar-wrapper">
+                            <div class="bar renforcement" data-category="renforcement" style="width: 0%"></div>
+                        </div>
+                        <div class="bar-value" id="renforcementCount">0</div>
                     </div>
                 </div>
             </div>
@@ -164,6 +190,6 @@
     </footer>
 
     <script type="module" src="vendor/supabase.min.js"></script>
-    <script src="dashboard.js?v=8"></script>
+    <script src="dashboard.js?v=9"></script>
 </body>
 </html>

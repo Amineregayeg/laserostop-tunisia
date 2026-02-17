@@ -84,6 +84,7 @@ let isSubmitting = false;
 let draggedBooking = null;
 let draggedElement = null;
 let pendingDuplicateData = null;
+let supabaseClient = null;
 
 // ===== Date Utilities =====
 function getTunisTime() {
@@ -221,28 +222,29 @@ function renderDesktopCalendar(calendar, weekDates) {
         const dateStr = date.toISOString().split('T')[0];
         const isPast = isSlotInPast(date, timeSlot);
         const booking = findBookingForSlot(dateStr, timeSlot);
-        
-        if (isPast) {
-          cell.className += ' cell--past';
-          cell.setAttribute('aria-label', `${STRINGS.DAYS[dayIndex]} ${formatDate(date)} ${timeSlot}, passé`);
-        } else if (booking) {
-          cell.className += ' cell--booked calendar-cell--draggable';
-          cell.setAttribute('aria-label', `${STRINGS.DAYS[dayIndex]} ${formatDate(date)} ${timeSlot}, réservé par ${booking.client_name}`);
-          cell.setAttribute('draggable', 'true');
+
+        if (booking) {
+          cell.className += ' cell--booked';
+          if (isPast) {
+            cell.className += ' cell--past';
+          } else {
+            cell.className += ' calendar-cell--draggable';
+            cell.setAttribute('draggable', 'true');
+          }
           cell.dataset.bookingId = booking.id;
-          
+          cell.setAttribute('aria-label', `${STRINGS.DAYS[dayIndex]} ${formatDate(date)} ${timeSlot}, réservé par ${booking.client_name}${isPast ? ' (passé)' : ''}`);
+
           // Check if this is the first slot of the booking
-          const bookingStartTime = new Date(booking.slot_start_utc).toLocaleTimeString('en-GB', { 
-            timeZone: TUNIS_TZ, 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit' 
+          const bookingStartTime = new Date(booking.slot_start_utc).toLocaleTimeString('en-GB', {
+            timeZone: TUNIS_TZ,
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
           });
           const [slotStartTime] = timeSlot.split('-');
           const isFirstSlot = bookingStartTime === slotStartTime;
-          
+
           if (isFirstSlot) {
-            // Show full booking info in the first slot
             cell.innerHTML = `
               <div class="booking-info">
                 <div>${booking.client_name}</div>
@@ -252,7 +254,6 @@ function renderDesktopCalendar(calendar, weekDates) {
               </div>
             `;
           } else {
-            // Show continuation indicator in subsequent slots
             cell.innerHTML = `
               <div class="booking-info booking-continuation">
                 <div>↳ ${booking.client_name}</div>
@@ -260,17 +261,22 @@ function renderDesktopCalendar(calendar, weekDates) {
               </div>
             `;
           }
-          
+
           cell.addEventListener('click', () => showBookingDetails(booking));
-          setupDragEvents(cell, booking, dateStr, timeSlot);
-          setupEditShortcuts(cell, booking);
+          if (!isPast) {
+            setupDragEvents(cell, booking, dateStr, timeSlot);
+            setupEditShortcuts(cell, booking);
+          }
+        } else if (isPast) {
+          cell.className += ' cell--past';
+          cell.setAttribute('aria-label', `${STRINGS.DAYS[dayIndex]} ${formatDate(date)} ${timeSlot}, passé`);
         } else {
           cell.className += ' cell--free';
           cell.setAttribute('aria-label', `${STRINGS.DAYS[dayIndex]} ${formatDate(date)} ${timeSlot}, disponible`);
           cell.textContent = 'Libre';
           cell.addEventListener('click', () => openBookingModal(dateStr, timeSlot));
         }
-        
+
         cell.setAttribute('tabindex', isPast ? '-1' : '0');
         if (!isPast) {
           cell.addEventListener('keydown', (e) => {
@@ -316,23 +322,26 @@ function renderMobileCalendar(calendar, weekDates) {
       const slot = document.createElement('div');
       slot.className = 'mobile-slot';
       
-      if (isPast) {
-        slot.className += ' cell--past';
-      } else if (booking) {
-        slot.className += ' cell--booked calendar-cell--draggable';
-        slot.setAttribute('draggable', 'true');
+      if (booking) {
+        slot.className += ' cell--booked';
+        if (isPast) {
+          slot.className += ' cell--past';
+        } else {
+          slot.className += ' calendar-cell--draggable';
+          slot.setAttribute('draggable', 'true');
+        }
         slot.dataset.bookingId = booking.id;
-        
+
         // Check if this is the first slot of the booking
-        const bookingStartTime = new Date(booking.slot_start_utc).toLocaleTimeString('en-GB', { 
-          timeZone: TUNIS_TZ, 
-          hour12: false, 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        const bookingStartTime = new Date(booking.slot_start_utc).toLocaleTimeString('en-GB', {
+          timeZone: TUNIS_TZ,
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
         });
         const [slotStartTime] = timeSlot.split('-');
         const isFirstSlot = bookingStartTime === slotStartTime;
-        
+
         if (isFirstSlot) {
           slot.innerHTML = `
             <div class="booking-info">
@@ -352,10 +361,14 @@ function renderMobileCalendar(calendar, weekDates) {
             </div>
           `;
         }
-        
+
         slot.addEventListener('click', () => showBookingDetails(booking));
-        setupDragEvents(slot, booking, dateStr, timeSlot);
-        setupEditShortcuts(slot, booking);
+        if (!isPast) {
+          setupDragEvents(slot, booking, dateStr, timeSlot);
+          setupEditShortcuts(slot, booking);
+        }
+      } else if (isPast) {
+        slot.className += ' cell--past';
       } else {
         slot.className += ' cell--free';
         slot.innerHTML = `<div>${timeSlot}</div><div>Libre</div>`;
@@ -1578,21 +1591,50 @@ function checkAuth() {
   }
 }
 
+// ===== Supabase Realtime =====
+function initializeRealtime() {
+  if (typeof window.supabase === 'undefined') {
+    console.warn('Supabase client not available, skipping Realtime');
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  supabaseClient.channel('calendar-bookings')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'bookings' },
+      () => {
+        loadWeekBookings();
+      }
+    )
+    .subscribe();
+
+  // Reload when user returns to tab
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadWeekBookings();
+    }
+  });
+}
+
 // ===== Initialization =====
 function init() {
   // Check authentication (required)
   if (!checkAuth()) return;
-  
+
   // Set initial week
   currentWeekStart = getWeekStart();
-  
+
   // Initialize UI
   updateWeekTitle();
   initializeEventListeners();
-  
+
   // Load data
   loadWeekBookings();
-  
+
+  // Setup Realtime sync
+  initializeRealtime();
+
   // Register PWA
   registerServiceWorker();
 }
