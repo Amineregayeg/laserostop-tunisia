@@ -52,6 +52,17 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
 
+# AI Chatbot admin routes
+[[redirects]]
+  from = "/ai"
+  to = "/ai/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/ai/admin"
+  to = "/ai/admin.html"
+  status = 200
+
 # SPA fallback for clean URLs
 [[redirects]]
   from = "/dashboard"

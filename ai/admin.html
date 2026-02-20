@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LaserOstop Tunisie - Admin Chatbot</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login -->
+  <div id="loginView" class="login-container">
+    <h2>Admin Chatbot Tunisie</h2>
+    <input type="password" id="passwordInput" placeholder="Mot de passe" autocomplete="off">
+    <button onclick="login()">Connexion</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminView" class="admin-container" style="display:none">
+    <header class="app-header" style="border-radius:8px;margin-bottom:15px">
+      <h1>Admin Chatbot - LaserOstop Tunisie</h1>
+      <a href="index.html" class="admin-link">Test Chat</a>
+    </header>
+
+    <!-- Settings -->
+    <div class="settings-bar">
+      <div class="toggle-container">
+        <span>Mode approbation manuelle</span>
+        <label class="toggle">
+          <input type="checkbox" id="approvalToggle" onchange="toggleApproval()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span id="approvalStatus"></span>
+      </div>
+      <div>
+        <span id="statsInfo" style="font-size:0.85em;color:#666"></span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('pending')">
+        En attente <span id="pendingBadge" class="tab-badge" style="display:none">0</span>
+      </button>
+      <button class="tab" onclick="switchTab('phones')">
+        Numéros <span id="phonesBadge" class="tab-badge" style="display:none">0</span>
+      </button>
+      <button class="tab" onclick="switchTab('history')">Historique</button>
+      <button class="tab" onclick="switchTab('logs')">Logs</button>
+    </div>
+
+    <!-- Tab contents -->
+    <div id="pendingTab"></div>
+    <div id="phonesTab" style="display:none"></div>
+    <div id="historyTab" style="display:none"></div>
+    <div id="logsTab" style="display:none"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://api.smart-cita.com/admin/tunis';
+    let PASSWORD = localStorage.getItem('tunis_admin_pass') || '';
+    let currentTab = 'pending';
+    let refreshInterval;
+
+    // Auto-login if password saved
+    if (PASSWORD) {
+      document.getElementById('loginView').style.display = 'none';
+      document.getElementById('adminView').style.display = 'block';
+      init();
+    }
+
+    function headers() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + PASSWORD
+      };
+    }
+
+    async function login() {
+      PASSWORD = document.getElementById('passwordInput').value;
+      try {
+        const resp = await fetch(API_BASE + '/stats', { headers: headers() });
+        if (resp.ok) {
+          localStorage.setItem('tunis_admin_pass', PASSWORD);
+          document.getElementById('loginView').style.display = 'none';
+          document.getElementById('adminView').style.display = 'block';
+          init();
+        } else {
+          alert('Mot de passe incorrect');
+        }
+      } catch (e) {
+        alert('Erreur de connexion: ' + e.message);
+      }
+    }
+
+    async function init() {
+      await loadSettings();
+      await loadStats();
+      await loadPending();
+      refreshInterval = setInterval(() => {
+        loadStats();
+        if (currentTab === 'pending') loadPending();
+      }, 10000);
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', ['pending','phones','history','logs'][i] === tab);
+      });
+      ['pending','phones','history','logs'].forEach(t => {
+        document.getElementById(t + 'Tab').style.display = t === tab ? 'block' : 'none';
+      });
+      if (tab === 'pending') loadPending();
+      if (tab === 'phones') loadPhones();
+      if (tab === 'history') loadHistory();
+      if (tab === 'logs') loadLogs();
+    }
+
+    async function loadSettings() {
+      try {
+        const resp = await fetch(API_BASE + '/settings', { headers: headers() });
+        const data = await resp.json();
+        document.getElementById('approvalToggle').checked = data.manualApproval;
+        document.getElementById('approvalStatus').textContent = data.manualApproval ? 'ON' : 'OFF';
+        document.getElementById('approvalStatus').style.color = data.manualApproval ? '#4caf50' : '#999';
+      } catch (e) {}
+    }
+
+    async function toggleApproval() {
+      const on = document.getElementById('approvalToggle').checked;
+      try {
+        await fetch(API_BASE + '/settings', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ manualApproval: on })
+        });
+        document.getElementById('approvalStatus').textContent = on ? 'ON' : 'OFF';
+        document.getElementById('approvalStatus').style.color = on ? '#4caf50' : '#999';
+      } catch (e) {
+        alert('Erreur: ' + e.message);
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const resp = await fetch(API_BASE + '/stats', { headers: headers() });
+        const data = await resp.json();
+        document.getElementById('statsInfo').textContent =
+          `En attente: ${data.pendingCount} | Numéros: ${data.phonesCount}`;
+
+        const pb = document.getElementById('pendingBadge');
+        if (data.pendingCount > 0) {
+          pb.style.display = 'inline-block';
+          pb.textContent = data.pendingCount;
+        } else {
+          pb.style.display = 'none';
+        }
+
+        const phb = document.getElementById('phonesBadge');
+        if (data.phonesCount > 0) {
+          phb.style.display = 'inline-block';
+          phb.textContent = data.phonesCount;
+        } else {
+          phb.style.display = 'none';
+        }
+      } catch (e) {}
+    }
+
+    async function loadPending() {
+      try {
+        const resp = await fetch(API_BASE + '/pending', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('pendingTab');
+
+        if (data.pending.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>Aucun message en attente</p></div>';
+          return;
+        }
+
+        container.innerHTML = data.pending.map(msg => `
+          <div class="card" id="card-${msg.id}">
+            <div class="card-header">
+              <span><strong>${esc(msg.contactName)}</strong> (${esc(msg.userId.slice(-6))})</span>
+              <span>
+                <span class="platform">${msg.platform}</span>
+                <span class="time">${timeAgo(msg.createdAt)}</span>
+              </span>
+            </div>
+            <div class="card-user-msg">${esc(msg.userMessage)}</div>
+            <div class="card-bot-msg" id="response-${msg.id}">${esc(msg.botResponse)}</div>
+            <div id="edit-area-${msg.id}" style="display:none">
+              <textarea class="edit-textarea" id="edit-${msg.id}">${esc(msg.botResponse)}</textarea>
+            </div>
+            ${msg.phoneDetected ? `<div style="margin-bottom:8px;color:#0C9AA6;font-size:0.85em">📱 Numéro détecté: ${msg.phoneDetected}</div>` : ''}
+            <div class="card-actions">
+              <button class="btn btn-approve" onclick="approveMsg('${msg.id}')">Approuver</button>
+              <button class="btn btn-edit" onclick="toggleEdit('${msg.id}')">Modifier</button>
+              <button class="btn btn-reject" onclick="rejectMsg('${msg.id}')">Rejeter</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('pendingTab').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+      }
+    }
+
+    function toggleEdit(id) {
+      const area = document.getElementById('edit-area-' + id);
+      const resp = document.getElementById('response-' + id);
+      const isVisible = area.style.display !== 'none';
+      area.style.display = isVisible ? 'none' : 'block';
+      resp.style.display = isVisible ? 'block' : 'none';
+    }
+
+    async function approveMsg(id) {
+      const editArea = document.getElementById('edit-area-' + id);
+      const editText = document.getElementById('edit-' + id);
+      const edited = editArea.style.display !== 'none' ? editText.value : null;
+
+      try {
+        const body = edited ? { editedResponse: edited } : {};
+        await fetch(API_BASE + '/approve/' + id, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify(body)
+        });
+        document.getElementById('card-' + id).remove();
+        loadStats();
+      } catch (e) {
+        alert('Erreur: ' + e.message);
+      }
+    }
+
+    async function rejectMsg(id) {
+      try {
+        await fetch(API_BASE + '/reject/' + id, {
+          method: 'POST',
+          headers: headers()
+        });
+        document.getElementById('card-' + id).remove();
+        loadStats();
+      } catch (e) {
+        alert('Erreur: ' + e.message);
+      }
+    }
+
+    async function loadPhones() {
+      try {
+        const resp = await fetch(API_BASE + '/phones', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('phonesTab');
+
+        if (data.phones.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>Aucun numéro collecté</p></div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div style="margin-bottom:12px;text-align:right">
+            <button class="btn btn-export" onclick="exportPhones()">Exporter CSV</button>
+          </div>
+          <div class="card">
+            <table class="phone-table">
+              <thead>
+                <tr><th>Nom</th><th>Téléphone</th><th>Plateforme</th><th>Date</th><th>Statut</th></tr>
+              </thead>
+              <tbody>
+                ${data.phones.map(p => `
+                  <tr>
+                    <td>${esc(p.customerName)}</td>
+                    <td><strong>${p.phone}</strong></td>
+                    <td>${p.platform}</td>
+                    <td>${new Date(p.timestamp).toLocaleString('fr-TN')}</td>
+                    <td>
+                      <select class="status-select" onchange="updatePhoneStatus('${p.id}', this.value)">
+                        <option value="new" ${p.status === 'new' ? 'selected' : ''}>Nouveau</option>
+                        <option value="called" ${p.status === 'called' ? 'selected' : ''}>Appelé</option>
+                        <option value="no_answer" ${p.status === 'no_answer' ? 'selected' : ''}>Pas de réponse</option>
+                        <option value="converted" ${p.status === 'converted' ? 'selected' : ''}>Converti</option>
+                      </select>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('phonesTab').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+      }
+    }
+
+    async function updatePhoneStatus(id, status) {
+      try {
+        await fetch(API_BASE + '/phones/' + id + '/status', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ status })
+        });
+      } catch (e) {
+        alert('Erreur: ' + e.message);
+      }
+    }
+
+    function exportPhones() {
+      window.open(API_BASE + '/phones/export', '_blank');
+    }
+
+    async function loadHistory() {
+      try {
+        const resp = await fetch(API_BASE + '/history', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('historyTab');
+
+        if (data.history.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>Aucun historique</p></div>';
+          return;
+        }
+
+        container.innerHTML = data.history.map(h => `
+          <div class="history-item ${h.status}">
+            <div class="history-meta">
+              ${h.status === 'approved' ? '✅' : '❌'} ${h.contactName} (${h.platform})
+              - ${new Date(h.approvedAt || h.rejectedAt).toLocaleString('fr-TN')}
+              ${h.wasEdited ? ' [modifié]' : ''}
+            </div>
+            <div style="font-size:0.9em;color:#666;margin-bottom:4px">
+              <strong>Client:</strong> ${esc(h.userMessage).substring(0, 100)}
+            </div>
+            <div style="font-size:0.9em">
+              <strong>Bot:</strong> ${esc(h.finalResponse || h.botResponse).substring(0, 200)}
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function loadLogs() {
+      try {
+        const resp = await fetch(API_BASE + '/logs', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('logsTab');
+
+        if (data.logs.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>Aucun log</p></div>';
+          return;
+        }
+
+        container.innerHTML = data.logs.slice(0, 50).map(l => `
+          <div class="card" style="padding:10px;margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;font-size:0.8em;color:#999;margin-bottom:4px">
+              <span>${l.platform} (***${l.userId})</span>
+              <span>${l.responseTime}ms | ${l.tokens} tokens</span>
+              <span>${new Date(l.timestamp).toLocaleString('fr-TN')}</span>
+            </div>
+            <div style="font-size:0.85em"><strong>Q:</strong> ${esc(l.userMessage).substring(0, 100)}</div>
+            <div style="font-size:0.85em;color:#666"><strong>A:</strong> ${esc(l.botResponse).substring(0, 150)}</div>
+            ${l.phoneDetected ? `<div style="font-size:0.8em;color:#0C9AA6">📱 ${l.phoneDetected}</div>` : ''}
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    function esc(text) {
+      if (!text) return '';
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function timeAgo(ts) {
+      const diff = Date.now() - ts;
+      if (diff < 60000) return 'maintenant';
+      if (diff < 3600000) return Math.floor(diff/60000) + ' min';
+      if (diff < 86400000) return Math.floor(diff/3600000) + ' h';
+      return Math.floor(diff/86400000) + ' j';
+    }
+
+    // Enter key on login
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') login();
+    });
+  </script>
+</body>
+</html>

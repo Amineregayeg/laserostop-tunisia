@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LaserOstop Tunisie - Test Chatbot</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>LaserOstop Tunisie - Test Chatbot</h1>
+      <p>Testez les réponses du chatbot avant mise en production</p>
+      <a href="admin.html" class="admin-link">Administration</a>
+    </header>
+
+    <div class="chat-container">
+      <div id="chatMessages" class="chat-messages">
+        <div class="message bot-message">
+          <div class="message-avatar">🤖</div>
+          <div class="message-content">
+            Bonjour ! 👋 Bienvenue chez LaserOstop Tunisie. Je suis l'assistant virtuel. Comment puis-je vous aider ?
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-container">
+        <div class="quick-buttons">
+          <button onclick="sendQuick('Prix')">Prix</button>
+          <button onclick="sendQuick('Adresse')">Adresse</button>
+          <button onclick="sendQuick('Prise de rendez-vous')">RDV</button>
+          <button onclick="sendQuick('بشحال السعر')">بشحال</button>
+          <button onclick="sendQuick('Drogue')">Drogue</button>
+          <button onclick="sendQuick('52947031')">Test tel</button>
+        </div>
+        <div class="chat-input">
+          <input type="text" id="messageInput" placeholder="Tapez un message..." autocomplete="off">
+          <button id="sendBtn" onclick="sendMessage()">Envoyer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-panel">
+      <h3>Informations de test</h3>
+      <div id="tokenInfo" class="token-info">Tokens utilisés: 0</div>
+      <div id="phoneInfo" class="phone-info" style="display:none">📱 Numéro détecté: <span id="phoneNumber"></span></div>
+      <button onclick="clearChat()" class="clear-btn">Effacer la conversation</button>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://api.smart-cita.com/admin';
+    const PASSWORD = localStorage.getItem('tunis_admin_pass') || '';
+    let conversationHistory = [];
+    let totalTokens = 0;
+
+    // Prompt for password if not set
+    if (!PASSWORD) {
+      const pass = prompt('Mot de passe admin:');
+      if (pass) {
+        localStorage.setItem('tunis_admin_pass', pass);
+        location.reload();
+      }
+    }
+
+    function headers() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + PASSWORD
+      };
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      input.value = '';
+      addMessage(message, 'user');
+
+      // Show typing indicator
+      const typingId = showTyping();
+
+      try {
+        const resp = await fetch(API_BASE + '/tunis/test-chat', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({
+            message,
+            history: conversationHistory
+          })
+        });
+
+        removeTyping(typingId);
+
+        if (!resp.ok) {
+          if (resp.status === 401) {
+            localStorage.removeItem('tunis_admin_pass');
+            alert('Mot de passe incorrect');
+            location.reload();
+            return;
+          }
+          throw new Error('Erreur serveur');
+        }
+
+        const data = await resp.json();
+        addMessage(data.response, 'bot');
+
+        // Track conversation
+        conversationHistory.push({ role: 'user', content: message });
+        conversationHistory.push({ role: 'assistant', content: data.response });
+
+        // Update token info
+        totalTokens += data.tokens || 0;
+        document.getElementById('tokenInfo').textContent = `Tokens utilisés: ${totalTokens}`;
+
+        // Phone detection
+        if (data.phoneDetected) {
+          document.getElementById('phoneInfo').style.display = 'block';
+          document.getElementById('phoneNumber').textContent = data.phoneDetected;
+        }
+
+      } catch (err) {
+        removeTyping(typingId);
+        addMessage('Erreur: ' + err.message, 'error');
+      }
+    }
+
+    function sendQuick(text) {
+      document.getElementById('messageInput').value = text;
+      sendMessage();
+    }
+
+    function addMessage(text, type) {
+      const container = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = `message ${type}-message`;
+
+      const avatar = type === 'bot' ? '🤖' : type === 'user' ? '👤' : '⚠️';
+      div.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div class="message-content">${escapeHtml(text)}</div>
+      `;
+
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function showTyping() {
+      const container = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = 'message bot-message typing';
+      div.id = 'typing-' + Date.now();
+      div.innerHTML = `
+        <div class="message-avatar">🤖</div>
+        <div class="message-content typing-dots">...</div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+      return div.id;
+    }
+
+    function removeTyping(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    function clearChat() {
+      conversationHistory = [];
+      totalTokens = 0;
+      document.getElementById('chatMessages').innerHTML = `
+        <div class="message bot-message">
+          <div class="message-avatar">🤖</div>
+          <div class="message-content">Bonjour ! 👋 Bienvenue chez LaserOstop Tunisie. Comment puis-je vous aider ?</div>
+        </div>
+      `;
+      document.getElementById('tokenInfo').textContent = 'Tokens utilisés: 0';
+      document.getElementById('phoneInfo').style.display = 'none';
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    }
+
+    // Enter key to send
+    document.getElementById('messageInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>
