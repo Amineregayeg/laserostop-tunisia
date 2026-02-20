@@ -61,18 +61,43 @@
     let currentTab = 'pending';
     let refreshInterval;
 
-    // Auto-login if password saved
-    if (PASSWORD) {
-      document.getElementById('loginView').style.display = 'none';
-      document.getElementById('adminView').style.display = 'block';
-      init();
-    }
-
     function headers() {
       return {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + PASSWORD
       };
+    }
+
+    function logout() {
+      localStorage.removeItem('tunis_admin_pass');
+      PASSWORD = '';
+      if (refreshInterval) clearInterval(refreshInterval);
+      document.getElementById('adminView').style.display = 'none';
+      document.getElementById('loginView').style.display = 'block';
+    }
+
+    async function authFetch(url, options) {
+      const resp = await fetch(url, options);
+      if (resp.status === 401) { logout(); throw new Error('Session expirée'); }
+      return resp;
+    }
+
+    // Auto-login: verify saved password first
+    if (PASSWORD) {
+      (async () => {
+        try {
+          const resp = await fetch(API_BASE + '/stats', { headers: headers() });
+          if (resp.ok) {
+            document.getElementById('loginView').style.display = 'none';
+            document.getElementById('adminView').style.display = 'block';
+            init();
+          } else {
+            logout();
+          }
+        } catch (e) {
+          logout();
+        }
+      })();
     }
 
     async function login() {
@@ -118,7 +143,7 @@
 
     async function loadSettings() {
       try {
-        const resp = await fetch(API_BASE + '/settings', { headers: headers() });
+        const resp = await authFetch(API_BASE + '/settings', { headers: headers() });
         const data = await resp.json();
         document.getElementById('approvalToggle').checked = data.manualApproval;
         document.getElementById('approvalStatus').textContent = data.manualApproval ? 'ON' : 'OFF';
@@ -129,7 +154,7 @@
     async function toggleApproval() {
       const on = document.getElementById('approvalToggle').checked;
       try {
-        await fetch(API_BASE + '/settings', {
+        await authFetch(API_BASE + '/settings', {
           method: 'POST',
           headers: headers(),
           body: JSON.stringify({ manualApproval: on })
@@ -143,7 +168,7 @@
 
     async function loadStats() {
       try {
-        const resp = await fetch(API_BASE + '/stats', { headers: headers() });
+        const resp = await authFetch(API_BASE + '/stats', { headers: headers() });
         const data = await resp.json();
         document.getElementById('statsInfo').textContent =
           `En attente: ${data.pendingCount} | Numéros: ${data.phonesCount}`;
@@ -168,7 +193,7 @@
 
     async function loadPending() {
       try {
-        const resp = await fetch(API_BASE + '/pending', { headers: headers() });
+        const resp = await authFetch(API_BASE + '/pending', { headers: headers() });
         const data = await resp.json();
         const container = document.getElementById('pendingTab');
 
@@ -219,7 +244,7 @@
 
       try {
         const body = edited ? { editedResponse: edited } : {};
-        await fetch(API_BASE + '/approve/' + id, {
+        await authFetch(API_BASE + '/approve/' + id, {
           method: 'POST',
           headers: headers(),
           body: JSON.stringify(body)
@@ -233,7 +258,7 @@
 
     async function rejectMsg(id) {
       try {
-        await fetch(API_BASE + '/reject/' + id, {
+        await authFetch(API_BASE + '/reject/' + id, {
           method: 'POST',
           headers: headers()
         });
@@ -246,7 +271,7 @@
 
     async function loadPhones() {
       try {
-        const resp = await fetch(API_BASE + '/phones', { headers: headers() });
+        const resp = await authFetch(API_BASE + '/phones', { headers: headers() });
         const data = await resp.json();
         const container = document.getElementById('phonesTab');
 
@@ -292,7 +317,7 @@
 
     async function updatePhoneStatus(id, status) {
       try {
-        await fetch(API_BASE + '/phones/' + id + '/status', {
+        await authFetch(API_BASE + '/phones/' + id + '/status', {
           method: 'POST',
           headers: headers(),
           body: JSON.stringify({ status })
@@ -308,7 +333,7 @@
 
     async function loadHistory() {
       try {
-        const resp = await fetch(API_BASE + '/history', { headers: headers() });
+        const resp = await authFetch(API_BASE + '/history', { headers: headers() });
         const data = await resp.json();
         const container = document.getElementById('historyTab');
 
@@ -337,7 +362,7 @@
 
     async function loadLogs() {
       try {
-        const resp = await fetch(API_BASE + '/logs', { headers: headers() });
+        const resp = await authFetch(API_BASE + '/logs', { headers: headers() });
         const data = await resp.json();
         const container = document.getElementById('logsTab');
 

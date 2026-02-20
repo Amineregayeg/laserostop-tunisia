@@ -54,12 +54,25 @@
     let conversationHistory = [];
     let totalTokens = 0;
 
-    // Prompt for password if not set
+    // Prompt for password if not set, then verify
     if (!PASSWORD) {
       const pass = prompt('Mot de passe admin:');
       if (pass) {
-        localStorage.setItem('tunis_admin_pass', pass);
-        location.reload();
+        (async () => {
+          try {
+            const resp = await fetch(API_BASE + '/tunis/stats', {
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + pass }
+            });
+            if (resp.ok) {
+              localStorage.setItem('tunis_admin_pass', pass);
+              location.reload();
+            } else {
+              alert('Mot de passe incorrect');
+            }
+          } catch (e) {
+            alert('Erreur de connexion');
+          }
+        })();
       }
     }
 
