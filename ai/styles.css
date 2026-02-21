@@ -35,10 +35,15 @@ body {
   font-size: 0.9em;
 }
 
-.admin-link {
+.header-links {
   position: absolute;
   top: 15px;
   right: 15px;
+  display: flex;
+  gap: 8px;
+}
+
+.admin-link {
   color: white;
   text-decoration: none;
   background: rgba(255,255,255,0.2);
@@ -559,15 +564,98 @@ body {
 
 @media (max-width: 600px) {
   .app-container, .admin-container {
-    padding: 10px;
+    padding: 8px;
+  }
+  .app-header {
+    padding: 12px;
+    padding-top: 40px;
+  }
+  .app-header h1 {
+    font-size: 1.1em;
+  }
+  .header-links {
+    top: 8px;
+    right: 8px;
+  }
+  .admin-link {
+    padding: 4px 8px;
+    font-size: 0.75em;
   }
   .chat-messages {
     height: 350px;
+    padding: 12px;
+  }
+  .message-content {
+    max-width: 85%;
+    font-size: 0.9em;
   }
   .tabs {
     flex-wrap: wrap;
   }
   .tab {
     flex: 1 1 45%;
+    padding: 10px 6px;
+    font-size: 0.85em;
+  }
+  .settings-bar {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .toggle-container {
+    flex-wrap: wrap;
+    font-size: 0.85em;
+  }
+  .card {
+    padding: 12px;
+  }
+  .card-header {
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+  }
+  .card-user-msg, .card-bot-msg {
+    font-size: 0.88em;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  .card-actions {
+    flex-wrap: wrap;
+  }
+  .btn {
+    padding: 8px 12px;
+    font-size: 0.85em;
+  }
+  .phone-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .phone-table th, .phone-table td {
+    padding: 6px 8px;
+    font-size: 0.8em;
+    white-space: nowrap;
+  }
+  .history-item {
+    padding: 10px;
+    word-break: break-word;
+  }
+  .login-container {
+    margin: 40px auto;
+    padding: 20px;
+  }
+  .quick-buttons {
+    padding: 6px 8px;
+  }
+  .quick-buttons button {
+    font-size: 0.8em;
+    padding: 4px 10px;
+  }
+  .chat-input {
+    padding: 8px;
+  }
+  .chat-input button {
+    padding: 10px 14px;
+    font-size: 0.85em;
   }
 }

@@ -18,7 +18,10 @@
   <div id="adminView" class="admin-container" style="display:none">
     <header class="app-header" style="border-radius:8px;margin-bottom:15px">
       <h1>Admin Chatbot - LaserOstop Tunisie</h1>
-      <a href="index.html" class="admin-link">Test Chat</a>
+      <div class="header-links">
+        <a href="/" class="admin-link">Calendrier</a>
+        <a href="index.html" class="admin-link">Test Chat</a>
+      </div>
     </header>
 
     <!-- Settings -->
@@ -60,6 +63,7 @@
     let PASSWORD = localStorage.getItem('tunis_admin_pass') || '';
     let currentTab = 'pending';
     let refreshInterval;
+    let editingIds = new Set();
 
     function headers() {
       return {
@@ -123,7 +127,7 @@
       await loadPending();
       refreshInterval = setInterval(() => {
         loadStats();
-        if (currentTab === 'pending') loadPending();
+        if (currentTab === 'pending' && editingIds.size === 0) loadPending();
       }, 10000);
     }
 
@@ -235,6 +239,11 @@
       const isVisible = area.style.display !== 'none';
       area.style.display = isVisible ? 'none' : 'block';
       resp.style.display = isVisible ? 'block' : 'none';
+      if (isVisible) {
+        editingIds.delete(id);
+      } else {
+        editingIds.add(id);
+      }
     }
 
     async function approveMsg(id) {
@@ -244,11 +253,17 @@
 
       try {
         const body = edited ? { editedResponse: edited } : {};
-        await authFetch(API_BASE + '/approve/' + id, {
+        const resp = await authFetch(API_BASE + '/approve/' + id, {
           method: 'POST',
           headers: headers(),
           body: JSON.stringify(body)
         });
+        const result = await resp.json();
+        if (!resp.ok) {
+          alert('Erreur: ' + (result.error || 'Erreur serveur'));
+          return;
+        }
+        editingIds.delete(id);
         document.getElementById('card-' + id).remove();
         loadStats();
       } catch (e) {
