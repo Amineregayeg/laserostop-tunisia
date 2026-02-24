@@ -156,17 +156,26 @@
     }
 
     async function toggleApproval() {
-      const on = document.getElementById('approvalToggle').checked;
+      const sw = document.getElementById('approvalToggle');
+      const on = sw.checked;
       try {
-        await authFetch(API_BASE + '/settings', {
+        const res = await authFetch(API_BASE + '/settings', {
           method: 'POST',
           headers: headers(),
           body: JSON.stringify({ manualApproval: on })
         });
+        if (!res.ok) throw new Error('Save failed');
+        // Confirm via GET
+        const check = await authFetch(API_BASE + '/settings', { headers: headers() });
+        const data = await check.json();
+        if (data.manualApproval !== on) throw new Error('Setting not persisted');
         document.getElementById('approvalStatus').textContent = on ? 'ON' : 'OFF';
         document.getElementById('approvalStatus').style.color = on ? '#4caf50' : '#999';
       } catch (e) {
-        alert('Erreur: ' + e.message);
+        sw.checked = !on;
+        document.getElementById('approvalStatus').textContent = !on ? 'ON' : 'OFF';
+        document.getElementById('approvalStatus').style.color = !on ? '#4caf50' : '#999';
+        alert('Erreur de sauvegarde: ' + e.message);
       }
     }
 
@@ -215,6 +224,8 @@
                 <span class="time">${timeAgo(msg.createdAt)}</span>
               </span>
             </div>
+            ${msg.wasTranscribed ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff3e0;color:#e65100;margin-bottom:6px">🎤 Message vocal</span>' : ''}
+            ${msg.attachmentType === 'image' ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e3f2fd;color:#1565c0;margin-bottom:6px">📷 Image</span>' : ''}
             <div class="card-user-msg">${esc(msg.userMessage)}</div>
             <div class="card-bot-msg" id="response-${msg.id}">${esc(msg.botResponse)}</div>
             <div id="edit-area-${msg.id}" style="display:none">
