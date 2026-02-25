@@ -368,11 +368,24 @@
           return;
         }
 
-        container.innerHTML = data.history.map(h => `
-          <div class="history-item ${h.status}">
+        container.innerHTML = data.history.map(h => {
+          let icon, label, labelColor, timeVal;
+          if (h.status === 'approved') {
+            icon = '✅'; label = 'Approuvé'; labelColor = '#4caf50';
+            timeVal = h.approvedAt || h.createdAt;
+          } else if (h.status === 'rejected') {
+            icon = '❌'; label = 'Rejeté'; labelColor = '#f44336';
+            timeVal = h.rejectedAt || h.createdAt;
+          } else {
+            icon = '🤖'; label = 'Auto-envoyé'; labelColor = '#2196f3';
+            timeVal = h.sentAt || h.createdAt;
+          }
+          return `
+          <div class="history-item ${h.status}" style="border-left:3px solid ${labelColor}">
             <div class="history-meta">
-              ${h.status === 'approved' ? '✅' : '❌'} ${h.contactName} (${h.platform})
-              - ${new Date(h.approvedAt || h.rejectedAt).toLocaleString('fr-TN')}
+              ${icon} <span style="color:${labelColor};font-weight:600">${label}</span>
+              — ${esc(h.contactName || '')} (${h.platform})
+              — ${new Date(timeVal).toLocaleString('fr-TN')}
               ${h.wasEdited ? ' [modifié]' : ''}
             </div>
             <div style="font-size:0.9em;color:#666;margin-bottom:4px">
@@ -381,8 +394,8 @@
             <div style="font-size:0.9em">
               <strong>Bot:</strong> ${esc(h.finalResponse || h.botResponse).substring(0, 200)}
             </div>
-          </div>
-        `).join('');
+          </div>`;
+        }).join('');
       } catch (e) {}
     }
 
