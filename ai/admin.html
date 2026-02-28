@@ -215,15 +215,29 @@
           return;
         }
 
-        container.innerHTML = data.pending.map(msg => `
+        container.innerHTML = data.pending.map(msg => {
+          let platformBadge = '';
+          const pf = msg.platform || '';
+          if (pf === 'messenger') {
+            platformBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af">Messenger</span>';
+          } else if (pf === 'instagram') {
+            platformBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fce7f3;color:#9d174d">Instagram</span>';
+          } else if (pf === 'comment' || msg.type === 'comment_reply') {
+            platformBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412">Commentaire</span>';
+          } else {
+            platformBadge = '<span class="platform">' + esc(pf) + '</span>';
+          }
+
+          return `
           <div class="card" id="card-${msg.id}">
             <div class="card-header">
-              <span><strong>${esc(msg.contactName)}</strong> (${esc(msg.userId.slice(-6))})</span>
+              <span><strong>${esc(msg.contactName)}</strong> (${esc((msg.userId || '').slice(-6))})</span>
               <span>
-                <span class="platform">${msg.platform}</span>
+                ${platformBadge}
                 <span class="time">${timeAgo(msg.createdAt)}</span>
               </span>
             </div>
+            ${msg.type === 'comment_reply' ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412;margin-bottom:6px">Commentaire sur publication</span>' : ''}
             ${msg.wasTranscribed ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff3e0;color:#e65100;margin-bottom:6px">🎤 Message vocal</span>' : ''}
             ${msg.attachmentType === 'image' ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#e3f2fd;color:#1565c0;margin-bottom:6px">📷 Image</span>' : ''}
             <div class="card-user-msg">${esc(msg.userMessage)}</div>
@@ -238,7 +252,7 @@
               <button class="btn btn-reject" onclick="rejectMsg('${msg.id}')">Rejeter</button>
             </div>
           </div>
-        `).join('');
+        `}).join('');
       } catch (e) {
         document.getElementById('pendingTab').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
       }
@@ -380,11 +394,28 @@
             icon = '🤖'; label = 'Auto-envoyé'; labelColor = '#2196f3';
             timeVal = h.sentAt || h.createdAt;
           }
+
+          // Platform badge with color
+          let platformBadge = '';
+          const pf = h.platform || h.type || '';
+          if (pf === 'messenger') {
+            platformBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af">Messenger</span>';
+          } else if (pf === 'instagram') {
+            platformBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fce7f3;color:#9d174d">Instagram</span>';
+          } else if (pf === 'comment' || h.type === 'comment_reply') {
+            platformBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412">Commentaire</span>';
+          } else if (pf === 'whatsapp') {
+            platformBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534">WhatsApp</span>';
+          } else {
+            platformBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569">' + esc(pf) + '</span>';
+          }
+
           return `
           <div class="history-item ${h.status}" style="border-left:3px solid ${labelColor}">
             <div class="history-meta">
               ${icon} <span style="color:${labelColor};font-weight:600">${label}</span>
-              — ${esc(h.contactName || '')} (${h.platform})
+              ${platformBadge}
+              — ${esc(h.contactName || '')}
               — ${new Date(timeVal).toLocaleString('fr-TN')}
               ${h.wasEdited ? ' [modifié]' : ''}
             </div>
@@ -410,10 +441,17 @@
           return;
         }
 
-        container.innerHTML = data.logs.slice(0, 50).map(l => `
+        container.innerHTML = data.logs.slice(0, 50).map(l => {
+          let pfBadge = '';
+          const pf = (l.platform || '').toLowerCase();
+          if (pf === 'messenger') pfBadge = '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:#dbeafe;color:#1e40af">Messenger</span>';
+          else if (pf === 'instagram') pfBadge = '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:#fce7f3;color:#9d174d">Instagram</span>';
+          else pfBadge = '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:#f1f5f9;color:#475569">' + esc(pf) + '</span>';
+
+          return `
           <div class="card" style="padding:10px;margin-bottom:6px">
             <div style="display:flex;justify-content:space-between;font-size:0.8em;color:#999;margin-bottom:4px">
-              <span>${l.platform} (***${l.userId})</span>
+              <span>${pfBadge} (***${l.userId})</span>
               <span>${l.responseTime}ms | ${l.tokens} tokens</span>
               <span>${new Date(l.timestamp).toLocaleString('fr-TN')}</span>
             </div>
@@ -421,7 +459,7 @@
             <div style="font-size:0.85em;color:#666"><strong>A:</strong> ${esc(l.botResponse).substring(0, 150)}</div>
             ${l.phoneDetected ? `<div style="font-size:0.8em;color:#0C9AA6">📱 ${l.phoneDetected}</div>` : ''}
           </div>
-        `).join('');
+        `}).join('');
       } catch (e) {}
     }
 
