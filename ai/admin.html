@@ -47,6 +47,9 @@
       <button class="tab" onclick="switchTab('phones')">
         Numéros <span id="phonesBadge" class="tab-badge" style="display:none">0</span>
       </button>
+      <button class="tab" onclick="switchTab('rdv')">
+        Rendez-vous <span id="rdvBadge" class="tab-badge" style="display:none">0</span>
+      </button>
       <button class="tab" onclick="switchTab('history')">Historique</button>
       <button class="tab" onclick="switchTab('logs')">Logs</button>
     </div>
@@ -54,6 +57,7 @@
     <!-- Tab contents -->
     <div id="pendingTab"></div>
     <div id="phonesTab" style="display:none"></div>
+    <div id="rdvTab" style="display:none"></div>
     <div id="historyTab" style="display:none"></div>
     <div id="logsTab" style="display:none"></div>
   </div>
@@ -134,13 +138,14 @@
     function switchTab(tab) {
       currentTab = tab;
       document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', ['pending','phones','history','logs'][i] === tab);
+        t.classList.toggle('active', ['pending','phones','rdv','history','logs'][i] === tab);
       });
-      ['pending','phones','history','logs'].forEach(t => {
+      ['pending','phones','rdv','history','logs'].forEach(t => {
         document.getElementById(t + 'Tab').style.display = t === tab ? 'block' : 'none';
       });
       if (tab === 'pending') loadPending();
       if (tab === 'phones') loadPhones();
+      if (tab === 'rdv') loadRendezVous();
       if (tab === 'history') loadHistory();
       if (tab === 'logs') loadLogs();
     }
@@ -184,7 +189,7 @@
         const resp = await authFetch(API_BASE + '/stats', { headers: headers() });
         const data = await resp.json();
         document.getElementById('statsInfo').textContent =
-          `En attente: ${data.pendingCount} | Numéros: ${data.phonesCount}`;
+          `En attente: ${data.pendingCount} | Numéros: ${data.phonesCount} | RDV: ${data.rdvCount || 0}`;
 
         const pb = document.getElementById('pendingBadge');
         if (data.pendingCount > 0) {
@@ -200,6 +205,14 @@
           phb.textContent = data.phonesCount;
         } else {
           phb.style.display = 'none';
+        }
+
+        const rb = document.getElementById('rdvBadge');
+        if (data.rdvCount > 0) {
+          rb.style.display = 'inline-block';
+          rb.textContent = data.rdvCount;
+        } else {
+          rb.style.display = 'none';
         }
       } catch (e) {}
     }
@@ -369,6 +382,70 @@
 
     function exportPhones() {
       window.open(API_BASE + '/phones/export', '_blank');
+    }
+
+    // ===== Rendez-vous Tab =====
+    async function loadRendezVous() {
+      try {
+        const resp = await authFetch(API_BASE + '/appointments', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('rdvTab');
+
+        if (!data.appointments || data.appointments.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon" style="font-size:2em">📅</div><p>Aucune demande de rendez-vous</p></div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div style="margin-bottom:12px;text-align:right">
+            <button class="btn btn-export" onclick="exportRendezVous()" style="background:#0ea5e9;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">Exporter CSV</button>
+          </div>
+          <div class="card">
+            <table class="phone-table">
+              <thead>
+                <tr><th>Nom</th><th>Téléphone</th><th>Créneau souhaité</th><th>Plateforme</th><th>Date</th><th>Statut</th></tr>
+              </thead>
+              <tbody>
+                ${data.appointments.map(a => `
+                  <tr>
+                    <td>${esc(a.customerName)}</td>
+                    <td><strong>${a.phone || '-'}</strong></td>
+                    <td>${esc(a.preferredSlot || 'Non précisé')}</td>
+                    <td>${a.platform || '-'}</td>
+                    <td>${new Date(a.timestamp).toLocaleString('fr-TN')}</td>
+                    <td>
+                      <select class="status-select" onchange="updateRdvStatus('${a.id}', this.value)" style="padding:4px 8px;border-radius:4px;border:1px solid #ddd">
+                        <option value="new" ${a.status === 'new' ? 'selected' : ''}>Nouveau</option>
+                        <option value="contacted" ${a.status === 'contacted' ? 'selected' : ''}>Contacté</option>
+                        <option value="confirmed" ${a.status === 'confirmed' ? 'selected' : ''}>Confirmé</option>
+                        <option value="cancelled" ${a.status === 'cancelled' ? 'selected' : ''}>Annulé</option>
+                      </select>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (e) {
+        document.getElementById('rdvTab').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+      }
+    }
+
+    async function updateRdvStatus(id, status) {
+      try {
+        await authFetch(API_BASE + '/appointments/' + id + '/status', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ status })
+        });
+      } catch (e) {
+        alert('Erreur: ' + e.message);
+      }
+    }
+
+    function exportRendezVous() {
+      window.open(API_BASE + '/appointments/export', '_blank');
     }
 
     async function loadHistory() {
