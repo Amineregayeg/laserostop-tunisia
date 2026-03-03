@@ -419,7 +419,7 @@
     async function approveOnboarding(id) {
       if (!confirm('Approuver cette inscription chauffeur ?')) return;
       try {
-        const resp = await authFetch(API_BASE + '/onboarding/' + id + '/approve', { method: 'POST', headers: headers() });
+        const resp = await authFetch(API_BASE + '/onboarding/approve/' + id, { method: 'POST', headers: headers() });
         if (resp.ok) {
           document.getElementById('onb-' + id).remove();
           loadStats();
@@ -431,7 +431,7 @@
     async function rejectOnboarding(id) {
       if (!confirm('Rejeter cette inscription ?')) return;
       try {
-        await authFetch(API_BASE + '/onboarding/' + id + '/reject', { method: 'POST', headers: headers() });
+        await authFetch(API_BASE + '/onboarding/reject/' + id, { method: 'POST', headers: headers() });
         document.getElementById('onb-' + id).remove();
         loadStats();
       } catch (e) { alert('Erreur: ' + e.message); }
