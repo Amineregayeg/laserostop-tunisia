@@ -109,7 +109,12 @@
     </div>
 
     <!-- Tab contents -->
-    <div id="pendingTab"></div>
+    <div id="pendingTab">
+      <div id="scanHeader" style="margin-bottom:12px;text-align:right">
+        <button class="btn btn-export" id="scanBtn" onclick="scanUnanswered()">Scanner messages Messenger</button>
+      </div>
+      <div id="pendingList"></div>
+    </div>
     <div id="phonesTab" style="display:none"></div>
     <div id="onboardingTab" style="display:none"></div>
     <div id="historyTab" style="display:none"></div>
@@ -240,7 +245,7 @@
       try {
         const resp = await authFetch(API_BASE + '/pending', { headers: headers() });
         const data = await resp.json();
-        const container = document.getElementById('pendingTab');
+        const container = document.getElementById('pendingList');
 
         if (data.pending.length === 0) {
           container.innerHTML = '<div class="empty-state"><div class="icon">OK</div><p>Aucun message en attente</p></div>';
@@ -276,7 +281,7 @@
           </div>`;
         }).join('');
       } catch (e) {
-        document.getElementById('pendingTab').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+        document.getElementById('pendingList').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
       }
     }
 
@@ -309,6 +314,28 @@
         document.getElementById('card-' + id).remove();
         loadStats();
       } catch (e) { alert('Erreur: ' + e.message); }
+    }
+
+    async function scanUnanswered() {
+      const btn = document.getElementById('scanBtn');
+      btn.disabled = true;
+      btn.textContent = 'Scan en cours...';
+      try {
+        const resp = await authFetch(API_BASE + '/scan', { method: 'POST', headers: headers() });
+        const data = await resp.json();
+        if (data.success) {
+          alert(`Scan termine !\n\nMessages trouves: ${data.found}\nMis en attente: ${data.queued}\nEnvoyes directement: ${data.sent}\nErreurs: ${data.errors}`);
+        } else {
+          alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+        }
+        await loadPending();
+        await loadStats();
+      } catch (e) {
+        alert('Erreur: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Scanner messages Messenger';
+      }
     }
 
     // ===== Phones =====
