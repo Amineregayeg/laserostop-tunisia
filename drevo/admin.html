@@ -356,11 +356,16 @@
           </div>
           <div class="card">
             <table class="phone-table">
-              <thead><tr><th>Nom</th><th>Telephone</th><th>Plateforme</th><th>Date</th><th>Statut</th></tr></thead>
+              <thead><tr><th>Nom</th><th>Telephone</th><th>Profil</th><th>Plateforme</th><th>Date</th><th>Statut</th></tr></thead>
               <tbody>
-                ${data.phones.map(p => `<tr>
+                ${data.phones.map(p => {
+                  const pt = p.profileType || 'non specifie';
+                  const ptColors = { chauffeur: 'background:#dcfce7;color:#166534', passager: 'background:#dbeafe;color:#1e40af', 'non specifie': 'background:#f3f4f6;color:#6b7280' };
+                  const ptLabels = { chauffeur: 'Chauffeur', passager: 'Passager', 'non specifie': 'Non specifie' };
+                  return `<tr>
                   <td>${esc(p.customerName)}</td>
                   <td><strong>${p.phone}</strong></td>
+                  <td><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;${ptColors[pt] || ptColors['non specifie']}">${ptLabels[pt] || pt}</span></td>
                   <td>${p.platform}</td>
                   <td>${new Date(p.timestamp).toLocaleString('fr-TN')}</td>
                   <td><select class="status-select" onchange="updatePhoneStatus('${p.id}', this.value)">
@@ -369,7 +374,7 @@
                     <option value="no_answer" ${p.status==='no_answer'?'selected':''}>Pas de reponse</option>
                     <option value="converted" ${p.status==='converted'?'selected':''}>Converti</option>
                   </select></td>
-                </tr>`).join('')}
+                </tr>`}).join('')}
               </tbody>
             </table>
           </div>`;
