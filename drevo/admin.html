@@ -219,12 +219,13 @@
       try {
         const resp = await authFetch(API_BASE + '/stats', { headers: headers() });
         const data = await resp.json();
+        const pendingCount = (data.pending || 0) + (data.pendingComments || 0);
         document.getElementById('statsInfo').textContent =
-          `En attente: ${data.pendingCount} | Numeros: ${data.phonesCount} | Inscriptions: ${data.onboardingCount || 0}`;
+          `En attente: ${pendingCount} | Numeros: ${data.phones || 0} | Inscriptions: ${data.onboarding || 0}`;
 
-        setBadge('pendingBadge', data.pendingCount);
-        setBadge('phonesBadge', data.phonesCount);
-        setBadge('onboardingBadge', data.onboardingCount);
+        setBadge('pendingBadge', pendingCount);
+        setBadge('phonesBadge', data.phones);
+        setBadge('onboardingBadge', data.onboarding);
       } catch (e) {}
     }
 
