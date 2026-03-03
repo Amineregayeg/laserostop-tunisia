@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drevo - Admin Chatbot</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+    .login-container { max-width: 320px; margin: 100px auto; padding: 30px; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); text-align: center; }
+    .login-container h2 { margin-bottom: 20px; color: #1a1a2e; }
+    .login-container input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 12px; font-size: 14px; }
+    .login-container button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .login-container button:hover { background: #1d4ed8; }
+    .admin-container { max-width: 900px; margin: 0 auto; padding: 15px; }
+    .app-header { background: linear-gradient(135deg, #1a1a2e 0%, #2563eb 100%); color: #fff; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin-bottom: 15px; }
+    .app-header h1 { font-size: 1.1em; }
+    .header-links a { color: #fff; text-decoration: none; margin-left: 12px; font-size: 0.85em; opacity: 0.85; }
+    .header-links a:hover { opacity: 1; }
+    .settings-bar { background: #fff; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .toggle-container { display: flex; align-items: center; gap: 10px; font-size: 0.9em; }
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 24px; transition: 0.3s; }
+    .toggle-slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+    .toggle input:checked + .toggle-slider { background: #2563eb; }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+    .tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tab { padding: 8px 16px; border: none; background: #fff; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 0.85em; color: #666; position: relative; }
+    .tab.active { background: #2563eb; color: #fff; }
+    .tab-badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: #fff; border-radius: 50%; font-size: 10px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .card { background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85em; }
+    .card-user-msg { background: #f0f2f5; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.9em; white-space: pre-wrap; }
+    .card-bot-msg { background: #eff6ff; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.9em; white-space: pre-wrap; border-left: 3px solid #2563eb; }
+    .card-actions { display: flex; gap: 8px; }
+    .btn { padding: 6px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600; }
+    .btn-approve { background: #22c55e; color: #fff; }
+    .btn-approve:hover { background: #16a34a; }
+    .btn-edit { background: #f59e0b; color: #fff; }
+    .btn-reject { background: #ef4444; color: #fff; }
+    .btn-reject:hover { background: #dc2626; }
+    .btn-export { background: #2563eb; color: #fff; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; }
+    .edit-textarea { width: 100%; min-height: 80px; padding: 10px; border: 1px solid #2563eb; border-radius: 8px; font-family: inherit; font-size: 0.9em; margin-bottom: 8px; }
+    .empty-state { text-align: center; padding: 40px; color: #999; }
+    .empty-state .icon { font-size: 2em; margin-bottom: 10px; }
+    .history-item { padding: 12px; margin-bottom: 8px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .history-meta { font-size: 0.85em; margin-bottom: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .time { font-size: 0.8em; color: #999; }
+    .phone-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    .phone-table th, .phone-table td { padding: 8px; text-align: left; border-bottom: 1px solid #eee; }
+    .phone-table th { font-weight: 600; color: #666; }
+    .status-select { padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; }
+    .onboarding-card { background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #2563eb; }
+    .onboarding-card .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 0.85em; margin: 10px 0; }
+    .onboarding-card .info-grid .label { color: #666; }
+    .onboarding-card .info-grid .value { font-weight: 600; }
+    .doc-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .doc-item { padding: 3px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+    .doc-received { background: #dcfce7; color: #166534; }
+    .doc-missing { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <!-- Login -->
+  <div id="loginView" class="login-container">
+    <h2>Admin Chatbot Drevo</h2>
+    <input type="password" id="passwordInput" placeholder="Mot de passe" autocomplete="off">
+    <button onclick="login()">Connexion</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminView" class="admin-container" style="display:none">
+    <header class="app-header">
+      <h1>Admin Chatbot - DREVO</h1>
+      <div class="header-links">
+        <a href="javascript:void(0)" onclick="logout()">Déconnexion</a>
+      </div>
+    </header>
+
+    <!-- Settings -->
+    <div class="settings-bar">
+      <div class="toggle-container">
+        <span>Mode approbation manuelle</span>
+        <label class="toggle">
+          <input type="checkbox" id="approvalToggle" onchange="toggleApproval()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span id="approvalStatus"></span>
+      </div>
+      <div>
+        <span id="statsInfo" style="font-size:0.85em;color:#666"></span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('pending')">
+        En attente <span id="pendingBadge" class="tab-badge" style="display:none">0</span>
+      </button>
+      <button class="tab" onclick="switchTab('phones')">
+        Numéros <span id="phonesBadge" class="tab-badge" style="display:none">0</span>
+      </button>
+      <button class="tab" onclick="switchTab('onboarding')">
+        Inscriptions <span id="onboardingBadge" class="tab-badge" style="display:none">0</span>
+      </button>
+      <button class="tab" onclick="switchTab('history')">Historique</button>
+      <button class="tab" onclick="switchTab('logs')">Logs</button>
+    </div>
+
+    <!-- Tab contents -->
+    <div id="pendingTab"></div>
+    <div id="phonesTab" style="display:none"></div>
+    <div id="onboardingTab" style="display:none"></div>
+    <div id="historyTab" style="display:none"></div>
+    <div id="logsTab" style="display:none"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://api.smart-cita.com/admin/drevo';
+    let PASSWORD = localStorage.getItem('drevo_admin_pass') || '';
+    let currentTab = 'pending';
+    let refreshInterval;
+    let editingIds = new Set();
+
+    function headers() {
+      return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + PASSWORD };
+    }
+
+    function logout() {
+      localStorage.removeItem('drevo_admin_pass');
+      PASSWORD = '';
+      if (refreshInterval) clearInterval(refreshInterval);
+      document.getElementById('adminView').style.display = 'none';
+      document.getElementById('loginView').style.display = 'block';
+    }
+
+    async function authFetch(url, options) {
+      const resp = await fetch(url, options);
+      if (resp.status === 401) { logout(); throw new Error('Session expired'); }
+      return resp;
+    }
+
+    if (PASSWORD) {
+      (async () => {
+        try {
+          const resp = await fetch(API_BASE + '/stats', { headers: headers() });
+          if (resp.ok) {
+            document.getElementById('loginView').style.display = 'none';
+            document.getElementById('adminView').style.display = 'block';
+            init();
+          } else { logout(); }
+        } catch (e) { logout(); }
+      })();
+    }
+
+    async function login() {
+      PASSWORD = document.getElementById('passwordInput').value;
+      try {
+        const resp = await fetch(API_BASE + '/stats', { headers: headers() });
+        if (resp.ok) {
+          localStorage.setItem('drevo_admin_pass', PASSWORD);
+          document.getElementById('loginView').style.display = 'none';
+          document.getElementById('adminView').style.display = 'block';
+          init();
+        } else { alert('Mot de passe incorrect'); }
+      } catch (e) { alert('Erreur: ' + e.message); }
+    }
+
+    async function init() {
+      await loadSettings();
+      await loadStats();
+      await loadPending();
+      refreshInterval = setInterval(() => {
+        loadStats();
+        if (currentTab === 'pending' && editingIds.size === 0) loadPending();
+      }, 10000);
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', ['pending','phones','onboarding','history','logs'][i] === tab);
+      });
+      ['pending','phones','onboarding','history','logs'].forEach(t => {
+        document.getElementById(t + 'Tab').style.display = t === tab ? 'block' : 'none';
+      });
+      if (tab === 'pending') loadPending();
+      if (tab === 'phones') loadPhones();
+      if (tab === 'onboarding') loadOnboarding();
+      if (tab === 'history') loadHistory();
+      if (tab === 'logs') loadLogs();
+    }
+
+    async function loadSettings() {
+      try {
+        const resp = await authFetch(API_BASE + '/settings', { headers: headers() });
+        const data = await resp.json();
+        document.getElementById('approvalToggle').checked = data.manualApproval;
+        document.getElementById('approvalStatus').textContent = data.manualApproval ? 'ON' : 'OFF';
+        document.getElementById('approvalStatus').style.color = data.manualApproval ? '#22c55e' : '#999';
+      } catch (e) {}
+    }
+
+    async function toggleApproval() {
+      const sw = document.getElementById('approvalToggle');
+      const on = sw.checked;
+      try {
+        await authFetch(API_BASE + '/settings', { method: 'POST', headers: headers(), body: JSON.stringify({ manualApproval: on }) });
+        document.getElementById('approvalStatus').textContent = on ? 'ON' : 'OFF';
+        document.getElementById('approvalStatus').style.color = on ? '#22c55e' : '#999';
+      } catch (e) {
+        sw.checked = !on;
+        alert('Erreur: ' + e.message);
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const resp = await authFetch(API_BASE + '/stats', { headers: headers() });
+        const data = await resp.json();
+        document.getElementById('statsInfo').textContent =
+          `En attente: ${data.pendingCount} | Numeros: ${data.phonesCount} | Inscriptions: ${data.onboardingCount || 0}`;
+
+        setBadge('pendingBadge', data.pendingCount);
+        setBadge('phonesBadge', data.phonesCount);
+        setBadge('onboardingBadge', data.onboardingCount);
+      } catch (e) {}
+    }
+
+    function setBadge(id, count) {
+      const el = document.getElementById(id);
+      if (count > 0) { el.style.display = 'inline-flex'; el.textContent = count; }
+      else { el.style.display = 'none'; }
+    }
+
+    // ===== Pending messages =====
+    async function loadPending() {
+      try {
+        const resp = await authFetch(API_BASE + '/pending', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('pendingTab');
+
+        if (data.pending.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">OK</div><p>Aucun message en attente</p></div>';
+          return;
+        }
+
+        container.innerHTML = data.pending.map(msg => {
+          const pf = msg.platform || '';
+          let pfBadge = '';
+          if (pf === 'messenger') pfBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af">Messenger</span>';
+          else if (pf === 'comment' || msg.type === 'comment_reply') pfBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412">Commentaire</span>';
+          else pfBadge = '<span style="font-size:11px">' + esc(pf) + '</span>';
+
+          return `
+          <div class="card" id="card-${msg.id}">
+            <div class="card-header">
+              <span><strong>${esc(msg.contactName)}</strong> (${esc((msg.userId || '').slice(-6))})</span>
+              <span>${pfBadge} <span class="time">${timeAgo(msg.createdAt)}</span></span>
+            </div>
+            ${msg.type === 'comment_reply' ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412;margin-bottom:6px">Commentaire</span>' : ''}
+            ${msg.wasTranscribed ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff3e0;color:#e65100;margin-bottom:6px">Voice</span>' : ''}
+            <div class="card-user-msg">${esc(msg.userMessage)}</div>
+            <div class="card-bot-msg" id="response-${msg.id}">${esc(msg.botResponse)}</div>
+            <div id="edit-area-${msg.id}" style="display:none">
+              <textarea class="edit-textarea" id="edit-${msg.id}">${esc(msg.botResponse)}</textarea>
+            </div>
+            ${msg.phoneDetected ? `<div style="margin-bottom:8px;color:#2563eb;font-size:0.85em">Tel: ${msg.phoneDetected}</div>` : ''}
+            <div class="card-actions">
+              <button class="btn btn-approve" onclick="approveMsg('${msg.id}')">Approuver</button>
+              <button class="btn btn-edit" onclick="toggleEdit('${msg.id}')">Modifier</button>
+              <button class="btn btn-reject" onclick="rejectMsg('${msg.id}')">Rejeter</button>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        document.getElementById('pendingTab').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+      }
+    }
+
+    function toggleEdit(id) {
+      const area = document.getElementById('edit-area-' + id);
+      const resp = document.getElementById('response-' + id);
+      const isVisible = area.style.display !== 'none';
+      area.style.display = isVisible ? 'none' : 'block';
+      resp.style.display = isVisible ? 'block' : 'none';
+      if (isVisible) editingIds.delete(id); else editingIds.add(id);
+    }
+
+    async function approveMsg(id) {
+      const editArea = document.getElementById('edit-area-' + id);
+      const editText = document.getElementById('edit-' + id);
+      const edited = editArea.style.display !== 'none' ? editText.value : null;
+      try {
+        const body = edited ? { editedResponse: edited } : {};
+        const resp = await authFetch(API_BASE + '/approve/' + id, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+        if (!resp.ok) { const r = await resp.json(); alert('Erreur: ' + (r.error || 'Erreur')); return; }
+        editingIds.delete(id);
+        document.getElementById('card-' + id).remove();
+        loadStats();
+      } catch (e) { alert('Erreur: ' + e.message); }
+    }
+
+    async function rejectMsg(id) {
+      try {
+        await authFetch(API_BASE + '/reject/' + id, { method: 'POST', headers: headers() });
+        document.getElementById('card-' + id).remove();
+        loadStats();
+      } catch (e) { alert('Erreur: ' + e.message); }
+    }
+
+    // ===== Phones =====
+    async function loadPhones() {
+      try {
+        const resp = await authFetch(API_BASE + '/phones', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('phonesTab');
+
+        if (data.phones.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">Tel</div><p>Aucun numero collecte</p></div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div style="margin-bottom:12px;text-align:right">
+            <button class="btn btn-export" onclick="exportPhones()">Exporter CSV</button>
+          </div>
+          <div class="card">
+            <table class="phone-table">
+              <thead><tr><th>Nom</th><th>Telephone</th><th>Plateforme</th><th>Date</th><th>Statut</th></tr></thead>
+              <tbody>
+                ${data.phones.map(p => `<tr>
+                  <td>${esc(p.customerName)}</td>
+                  <td><strong>${p.phone}</strong></td>
+                  <td>${p.platform}</td>
+                  <td>${new Date(p.timestamp).toLocaleString('fr-TN')}</td>
+                  <td><select class="status-select" onchange="updatePhoneStatus('${p.id}', this.value)">
+                    <option value="new" ${p.status==='new'?'selected':''}>Nouveau</option>
+                    <option value="called" ${p.status==='called'?'selected':''}>Appele</option>
+                    <option value="no_answer" ${p.status==='no_answer'?'selected':''}>Pas de reponse</option>
+                    <option value="converted" ${p.status==='converted'?'selected':''}>Converti</option>
+                  </select></td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      } catch (e) { document.getElementById('phonesTab').innerHTML = '<div class="empty-state">Erreur</div>'; }
+    }
+
+    async function updatePhoneStatus(id, status) {
+      try { await authFetch(API_BASE + '/phones/' + id + '/status', { method: 'POST', headers: headers(), body: JSON.stringify({ status }) }); }
+      catch (e) { alert('Erreur: ' + e.message); }
+    }
+
+    function exportPhones() { window.open(API_BASE + '/phones/export', '_blank'); }
+
+    // ===== Driver Onboarding =====
+    async function loadOnboarding() {
+      try {
+        const resp = await authFetch(API_BASE + '/onboarding', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('onboardingTab');
+
+        if (!data.onboarding || data.onboarding.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">Car</div><p>Aucune inscription en attente</p></div>';
+          return;
+        }
+
+        const allDocs = [
+          'CIN recto', 'CIN verso', 'Permis recto', 'Permis verso',
+          'Carte pro recto', 'Carte pro verso', 'Carte grise recto', 'Carte grise verso',
+          'Carte exploitation', 'Photo taxi'
+        ];
+        const docShorts = [
+          'cin_recto', 'cin_verso', 'permis_recto', 'permis_verso',
+          'carte_pro_recto', 'carte_pro_verso', 'carte_grise_recto', 'carte_grise_verso',
+          'carte_exploitation', 'photo_taxi'
+        ];
+
+        container.innerHTML = data.onboarding.map(entry => {
+          const info = entry.info || {};
+          const docs = entry.documents || {};
+
+          const docBadges = docShorts.map((short, i) => {
+            const received = !!docs[short];
+            return `<span class="doc-item ${received ? 'doc-received' : 'doc-missing'}">${allDocs[i]}</span>`;
+          }).join('');
+
+          return `
+          <div class="onboarding-card" id="onb-${entry.id}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong style="font-size:1.05em">${esc(entry.contactName || info.fullname || 'Chauffeur')}</strong>
+              <span class="time">${new Date(entry.completedAt || entry.createdAt).toLocaleString('fr-TN')}</span>
+            </div>
+            <div class="info-grid">
+              <span class="label">Nom:</span><span class="value">${esc(info.fullname || '-')}</span>
+              <span class="label">Telephone:</span><span class="value">${esc(info.phone || '-')}</span>
+              <span class="label">Ville:</span><span class="value">${esc(info.city || '-')}</span>
+              <span class="label">Vehicule:</span><span class="value">${esc(info.car_model || '-')}</span>
+              <span class="label">Plaque:</span><span class="value">${esc(info.car_plate || '-')}</span>
+              <span class="label">Annee/Couleur:</span><span class="value">${esc((info.car_year || '') + ' ' + (info.car_color || ''))}</span>
+              <span class="label">Type:</span><span class="value">${esc(info.ride_type || '-')}</span>
+              <span class="label">Documents:</span><span class="value">${entry.documentsReceived || 0}/10</span>
+            </div>
+            <div style="margin-top:8px">
+              <div style="font-size:0.8em;color:#666;margin-bottom:4px">Documents:</div>
+              <div class="doc-list">${docBadges}</div>
+            </div>
+            <div class="card-actions" style="margin-top:12px">
+              <button class="btn btn-approve" onclick="approveOnboarding('${entry.id}')">Approuver</button>
+              <button class="btn btn-reject" onclick="rejectOnboarding('${entry.id}')">Rejeter</button>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) { document.getElementById('onboardingTab').innerHTML = '<div class="empty-state">Erreur</div>'; }
+    }
+
+    async function approveOnboarding(id) {
+      if (!confirm('Approuver cette inscription chauffeur ?')) return;
+      try {
+        const resp = await authFetch(API_BASE + '/onboarding/' + id + '/approve', { method: 'POST', headers: headers() });
+        if (resp.ok) {
+          document.getElementById('onb-' + id).remove();
+          loadStats();
+          alert('Inscription approuvee !');
+        } else { const r = await resp.json(); alert('Erreur: ' + (r.error || 'Erreur')); }
+      } catch (e) { alert('Erreur: ' + e.message); }
+    }
+
+    async function rejectOnboarding(id) {
+      if (!confirm('Rejeter cette inscription ?')) return;
+      try {
+        await authFetch(API_BASE + '/onboarding/' + id + '/reject', { method: 'POST', headers: headers() });
+        document.getElementById('onb-' + id).remove();
+        loadStats();
+      } catch (e) { alert('Erreur: ' + e.message); }
+    }
+
+    // ===== History =====
+    async function loadHistory() {
+      try {
+        const resp = await authFetch(API_BASE + '/history', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('historyTab');
+
+        if (data.history.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">List</div><p>Aucun historique</p></div>';
+          return;
+        }
+
+        container.innerHTML = data.history.map(h => {
+          let icon, label, labelColor, timeVal;
+          if (h.status === 'approved') { icon = 'OK'; label = 'Approuve'; labelColor = '#22c55e'; timeVal = h.approvedAt || h.createdAt; }
+          else if (h.status === 'rejected') { icon = 'X'; label = 'Rejete'; labelColor = '#ef4444'; timeVal = h.rejectedAt || h.createdAt; }
+          else { icon = 'Auto'; label = 'Auto-envoye'; labelColor = '#2563eb'; timeVal = h.sentAt || h.createdAt; }
+
+          const pf = h.platform || '';
+          let pfBadge = '';
+          if (pf === 'messenger') pfBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af">Messenger</span>';
+          else if (pf === 'comment' || h.type === 'comment_reply') pfBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412">Commentaire</span>';
+          else pfBadge = '<span style="font-size:11px">' + esc(pf) + '</span>';
+
+          return `
+          <div class="history-item" style="border-left:3px solid ${labelColor}">
+            <div class="history-meta">
+              <span style="color:${labelColor};font-weight:600">[${icon}] ${label}</span>
+              ${pfBadge}
+              <span>${esc(h.contactName || '')}</span>
+              <span class="time">${new Date(timeVal).toLocaleString('fr-TN')}</span>
+              ${h.wasEdited ? ' [modifie]' : ''}
+            </div>
+            <div style="font-size:0.9em;color:#666;margin-bottom:4px"><strong>Client:</strong> ${esc(h.userMessage).substring(0, 100)}</div>
+            <div style="font-size:0.9em"><strong>Bot:</strong> ${esc(h.finalResponse || h.botResponse).substring(0, 200)}</div>
+          </div>`;
+        }).join('');
+      } catch (e) {}
+    }
+
+    // ===== Logs =====
+    async function loadLogs() {
+      try {
+        const resp = await authFetch(API_BASE + '/logs', { headers: headers() });
+        const data = await resp.json();
+        const container = document.getElementById('logsTab');
+
+        if (data.logs.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">Log</div><p>Aucun log</p></div>';
+          return;
+        }
+
+        container.innerHTML = data.logs.slice(0, 50).map(l => `
+          <div class="card" style="padding:10px;margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;font-size:0.8em;color:#999;margin-bottom:4px">
+              <span>${esc(l.platform)} (***${l.userId})</span>
+              <span>${l.responseTime}ms | ${l.tokens} tokens</span>
+              <span>${new Date(l.timestamp).toLocaleString('fr-TN')}</span>
+            </div>
+            <div style="font-size:0.85em"><strong>Q:</strong> ${esc(l.userMessage).substring(0, 100)}</div>
+            <div style="font-size:0.85em;color:#666"><strong>A:</strong> ${esc(l.botResponse).substring(0, 150)}</div>
+            ${l.phoneDetected ? `<div style="font-size:0.8em;color:#2563eb">Tel: ${l.phoneDetected}</div>` : ''}
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    function esc(text) {
+      if (!text) return '';
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function timeAgo(ts) {
+      const diff = Date.now() - ts;
+      if (diff < 60000) return 'maintenant';
+      if (diff < 3600000) return Math.floor(diff/60000) + ' min';
+      if (diff < 86400000) return Math.floor(diff/3600000) + ' h';
+      return Math.floor(diff/86400000) + ' j';
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') login();
+    });
+  </script>
+</body>
+</html>
