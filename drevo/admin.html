@@ -256,6 +256,7 @@
           const pf = msg.platform || '';
           let pfBadge = '';
           if (pf === 'messenger') pfBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af">Messenger</span>';
+          else if (pf === 'whatsapp') pfBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534">WhatsApp</span>';
           else if (pf === 'comment' || msg.type === 'comment_reply') pfBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412">Commentaire</span>';
           else pfBadge = '<span style="font-size:11px">' + esc(pf) + '</span>';
 
@@ -491,6 +492,7 @@
           const pf = h.platform || '';
           let pfBadge = '';
           if (pf === 'messenger') pfBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af">Messenger</span>';
+          else if (pf === 'whatsapp') pfBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534">WhatsApp</span>';
           else if (pf === 'comment' || h.type === 'comment_reply') pfBadge = '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412">Commentaire</span>';
           else pfBadge = '<span style="font-size:11px">' + esc(pf) + '</span>';
 
