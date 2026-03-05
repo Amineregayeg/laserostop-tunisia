@@ -42,6 +42,13 @@
     .btn-reject:hover { background: #dc2626; }
     .btn-export { background: #2563eb; color: #fff; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; }
     .edit-textarea { width: 100%; min-height: 80px; padding: 10px; border: 1px solid #2563eb; border-radius: 8px; font-family: inherit; font-size: 0.9em; margin-bottom: 8px; }
+    .conversation-panel { background: #f8f9fa; border-radius: 8px; padding: 12px; margin: 8px 0; max-height: 350px; overflow-y: auto; display: none; border: 1px solid #e5e7eb; }
+    .conv-msg { margin: 4px 0; padding: 6px 10px; border-radius: 8px; max-width: 85%; font-size: 0.82em; white-space: pre-wrap; word-break: break-word; }
+    .conv-msg.user { background: #e3e8ef; margin-right: auto; }
+    .conv-msg.assistant { background: #dbeafe; margin-left: auto; border-left: 2px solid #2563eb; }
+    .conv-msg .conv-time { font-size: 0.7em; color: #999; display: block; margin-top: 2px; }
+    .btn-context { background: #6366f1; color: #fff; font-size: 0.75em; padding: 3px 10px; border-radius: 4px; border: none; cursor: pointer; }
+    .btn-context:hover { background: #4f46e5; }
     .empty-state { text-align: center; padding: 40px; color: #999; }
     .empty-state .icon { font-size: 2em; margin-bottom: 10px; }
     .history-item { padding: 12px; margin-bottom: 8px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
@@ -268,21 +275,50 @@
             </div>
             ${msg.type === 'comment_reply' ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff7ed;color:#9a3412;margin-bottom:6px">Commentaire</span>' : ''}
             ${msg.wasTranscribed ? '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fff3e0;color:#e65100;margin-bottom:6px">Voice</span>' : ''}
-            <div class="card-user-msg">${esc(msg.userMessage)}</div>
-            <div class="card-bot-msg" id="response-${msg.id}">${esc(msg.botResponse)}</div>
+            <div class="card-user-msg" dir="auto">${esc(msg.userMessage)}</div>
+            <div class="card-bot-msg" dir="auto" id="response-${msg.id}">${esc(msg.botResponse)}</div>
             <div id="edit-area-${msg.id}" style="display:none">
-              <textarea class="edit-textarea" id="edit-${msg.id}">${esc(msg.botResponse)}</textarea>
+              <textarea class="edit-textarea" dir="auto" id="edit-${msg.id}">${esc(msg.botResponse)}</textarea>
             </div>
             ${msg.phoneDetected ? `<div style="margin-bottom:8px;color:#2563eb;font-size:0.85em">Tel: ${msg.phoneDetected}</div>` : ''}
             <div class="card-actions">
               <button class="btn btn-approve" onclick="approveMsg('${msg.id}')">Approuver</button>
+              <button class="btn btn-context" onclick="toggleConversation('${msg.userId}', '${msg.id}')">Contexte</button>
               <button class="btn btn-edit" onclick="toggleEdit('${msg.id}')">Modifier</button>
               <button class="btn btn-reject" onclick="rejectMsg('${msg.id}')">Rejeter</button>
             </div>
+            <div class="conversation-panel" id="conv-${msg.id}"></div>
           </div>`;
         }).join('');
       } catch (e) {
         document.getElementById('pendingList').innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+      }
+    }
+
+    async function toggleConversation(userId, msgId) {
+      const panel = document.getElementById('conv-' + msgId);
+      if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.innerHTML = '<div style="text-align:center;color:#999;padding:10px">Chargement...</div>';
+      panel.style.display = 'block';
+      try {
+        const resp = await authFetch(API_BASE + '/user/' + encodeURIComponent(userId) + '/conversation', { headers: headers() });
+        const data = await resp.json();
+        if (!data.conversation || data.conversation.length === 0) {
+          panel.innerHTML = '<div style="text-align:center;color:#999;padding:10px">Premiere conversation</div>';
+          return;
+        }
+        panel.innerHTML = '<div style="font-size:0.75em;color:#666;margin-bottom:6px;font-weight:600">Historique conversation</div>' +
+          data.conversation.map(msg => {
+            const cls = msg.role === 'user' ? 'user' : 'assistant';
+            const time = msg.timestamp ? new Date(msg.timestamp).toLocaleString('fr-TN', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '';
+            return `<div class="conv-msg ${cls}" dir="auto">${esc(msg.content)}<span class="conv-time">${time}</span></div>`;
+          }).join('');
+        panel.scrollTop = panel.scrollHeight;
+      } catch (e) {
+        panel.innerHTML = '<div style="text-align:center;color:#999;padding:10px">Erreur de chargement</div>';
       }
     }
 
@@ -505,8 +541,8 @@
               <span class="time">${new Date(timeVal).toLocaleString('fr-TN')}</span>
               ${h.wasEdited ? ' [modifie]' : ''}
             </div>
-            <div style="font-size:0.9em;color:#666;margin-bottom:4px"><strong>Client:</strong> ${esc(h.userMessage).substring(0, 100)}</div>
-            <div style="font-size:0.9em"><strong>Bot:</strong> ${esc(h.finalResponse || h.botResponse).substring(0, 200)}</div>
+            <div dir="auto" style="font-size:0.9em;color:#666;margin-bottom:4px"><strong>Client:</strong> ${esc(h.userMessage).substring(0, 100)}</div>
+            <div dir="auto" style="font-size:0.9em"><strong>Bot:</strong> ${esc(h.finalResponse || h.botResponse).substring(0, 200)}</div>
           </div>`;
         }).join('');
       } catch (e) {}
